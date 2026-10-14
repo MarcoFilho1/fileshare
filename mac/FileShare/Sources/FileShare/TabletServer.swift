@@ -15,6 +15,13 @@ final class TabletServer {
         case failed(String)
     }
 
+    /// O que aconteceu com uma cópia do Mac.
+    enum Delivery {
+        case delivered
+        /// Tablet fora: guardada para entregar quando ele reconectar.
+        case held
+    }
+
     enum SendError: LocalizedError {
         case notConnected, timeout
 
@@ -48,6 +55,10 @@ final class TabletServer {
     }
 
     private static let idleTimeout: TimeInterval = 70 // o tablet manda PING a cada 20 s
+    /// Sem notícias há mais que isso, a conexão provavelmente morreu (tablet dormindo):
+    /// a cópia é guardada em vez de enviada para o vazio.
+    private static let staleAfter: TimeInterval = 30
+    private static let ackTimeout: TimeInterval = 8
     private static let handshakeTimeout: TimeInterval = 10
 
     private let queue = DispatchQueue(label: "fileshare.server")
@@ -55,6 +66,8 @@ final class TabletServer {
     private let macName = Host.current().localizedName ?? "Mac"
     private let onReceive: (ClipPayload) -> Void
     private let onState: (State) -> Void
+    private let onHeldDelivered: (ClipPayload) -> Void
+    private var held = HeldClip()
     private var pairingKey: Data?
     private var listener: NWListener?
     /// Tablet autenticado. Uma conexão nova fica como candidata e só substitui esta depois de
@@ -65,10 +78,14 @@ final class TabletServer {
     private var pending: [Int: (Result<Void, Error>) -> Void] = [:]
     private var watchdog: DispatchSourceTimer?
 
-    init(macId: String, onReceive: @escaping (ClipPayload) -> Void, onState: @escaping (State) -> Void) {
+    init(macId: String,
+         onReceive: @escaping (ClipPayload) -> Void,
+         onState: @escaping (State) -> Void,
+         onHeldDelivered: @escaping (ClipPayload) -> Void) {
         self.macId = macId
         self.onReceive = onReceive
         self.onState = onState
+        self.onHeldDelivered = onHeldDelivered
         startWatchdog()
     }
 
@@ -126,17 +143,48 @@ final class TabletServer {
 
     // MARK: Mac → tablet
 
-    func send(_ payload: ClipPayload, completion: @escaping (Result<Void, Error>) -> Void) {
-        let done: (Result<Void, Error>) -> Void = { result in DispatchQueue.main.async { completion(result) } }
+    func send(_ payload: ClipPayload, completion: @escaping (Result<Delivery, Error>) -> Void) {
+        let done: (Result<Delivery, Error>) -> Void = { result in DispatchQueue.main.async { completion(result) } }
+        let copiedAt = Date()
         queue.async { [self] in
-            guard let session = active else { return done(.failure(SendError.notConnected)) }
+            guard let session = active, Date().timeIntervalSince(session.lastSeen) <= Self.staleAfter else {
+                if let stale = active { close(stale) }
+                held.hold(payload, copiedAt: copiedAt)
+                return done(.success(.held))
+            }
             let id = nextId
             nextId += 1
-            pending[id] = done
+            pending[id] = { [weak self] result in
+                switch result {
+                case .success:
+                    done(.success(.delivered))
+                case .failure:
+                    // a conexão morreu no caminho: guarda para quando o tablet voltar
+                    self?.held.hold(payload, copiedAt: copiedAt)
+                    done(.success(.held))
+                }
+            }
             write(.clip(id: id, payload: payload), to: session)
-            queue.asyncAfter(deadline: .now() + 15) { [weak self] in
+            queue.asyncAfter(deadline: .now() + Self.ackTimeout) { [weak self] in
                 self?.pending.removeValue(forKey: id)?(.failure(SendError.timeout))
             }
+        }
+    }
+
+    /// Entrega a cópia guardada logo depois que o tablet se autentica.
+    private func deliverHeld(to session: Session) {
+        guard let (payload, copiedAt) = held.take(now: Date()) else { return }
+        let id = nextId
+        nextId += 1
+        pending[id] = { [weak self] result in
+            switch result {
+            case .success: DispatchQueue.main.async { self?.onHeldDelivered(payload) }
+            case .failure: self?.held.hold(payload, copiedAt: copiedAt) // tenta na próxima conexão
+            }
+        }
+        write(.held(id: id, copiedAt: Int64(copiedAt.timeIntervalSince1970 * 1000), payload: payload), to: session)
+        queue.asyncAfter(deadline: .now() + Self.ackTimeout) { [weak self] in
+            self?.pending.removeValue(forKey: id)?(.failure(SendError.timeout))
         }
     }
 
@@ -197,11 +245,13 @@ final class TabletServer {
             active = session
             candidate = nil
             report(.connected(name: name.isEmpty ? "tablet" : name))
+            deliverHeld(to: session)
         case .ready:
             session.lastSeen = Date()
             switch try open(frame, in: session) {
             case .clip(let id, let payload):
                 write(.ack(id: id), to: session)
+                held.discard() // o que veio do tablet é mais novo que o que estava guardado
                 DispatchQueue.main.async { self.onReceive(payload) }
             case .ack(let id):
                 pending.removeValue(forKey: id)?(.success(()))
@@ -209,8 +259,8 @@ final class TabletServer {
                 write(.pong, to: session)
             case .pong:
                 break
-            case .auth, .hello:
-                throw Wire.DecodeError.badMessage("handshake repetido")
+            case .auth, .hello, .held:
+                throw Wire.DecodeError.badMessage("mensagem fora de lugar")
             }
         }
     }

@@ -18,6 +18,7 @@ struct WireTests {
         WireMessage.auth(nonce: Data(repeating: 0xA0, count: 16)),
         .hello(name: "Galaxy Tab S9 FE"),
         .clip(id: 1, payload: ClipPayload(mime: "image/png", data: Data([0x89, 0x50, 0x0A, 0x00]))),
+        .held(id: 2, copiedAt: 1_792_000_000_123, payload: ClipPayload(mime: "text/plain", data: Data("guardado".utf8))),
         .ack(id: 42),
         .ping,
         .pong,

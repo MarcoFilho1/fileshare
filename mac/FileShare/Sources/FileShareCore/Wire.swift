@@ -6,6 +6,9 @@ public enum WireMessage: Equatable, Sendable {
     case auth(nonce: Data)
     case hello(name: String)
     case clip(id: Int, payload: ClipPayload)
+    /// Cópia que o Mac guardou enquanto o tablet estava desconectado, com o horário em que foi feita
+    /// (ms desde 1970), para o tablet não sobrescrever algo que o usuário copiou lá depois.
+    case held(id: Int, copiedAt: Int64, payload: ClipPayload)
     case ack(id: Int)
     case ping
     case pong
@@ -42,6 +45,10 @@ public enum Wire {
             var d = Data("CLIP \(id) \(payload.mime)\n".utf8)
             d.append(payload.data)
             return d
+        case .held(let id, let copiedAt, let payload):
+            var d = Data("HELD \(id) \(copiedAt) \(payload.mime)\n".utf8)
+            d.append(payload.data)
+            return d
         case .ack(let id): return Data("ACK \(id)\n".utf8)
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
@@ -52,7 +59,7 @@ public enum Wire {
         guard let nl = bytes.firstIndex(of: UInt8(ascii: "\n")) else { throw DecodeError.badMessage("sem cabeçalho") }
         let header = String(decoding: bytes[bytes.startIndex..<nl], as: UTF8.self)
         let body = Data(bytes[(nl + 1)...])
-        let parts = header.split(separator: " ", maxSplits: 2).map(String.init)
+        let parts = header.split(separator: " ", maxSplits: header.hasPrefix("HELD ") ? 3 : 2).map(String.init)
         switch parts.first {
         case "AUTH":
             guard parts.count == 2, let nonce = Data(base64Encoded: parts[1]), nonce.count == 16 else {
@@ -64,6 +71,11 @@ public enum Wire {
         case "CLIP":
             guard parts.count == 3, let id = Int(parts[1]), !body.isEmpty else { throw DecodeError.badMessage(header) }
             return .clip(id: id, payload: ClipPayload(mime: parts[2], data: body))
+        case "HELD":
+            guard parts.count == 4, let id = Int(parts[1]), let copiedAt = Int64(parts[2]), !body.isEmpty else {
+                throw DecodeError.badMessage(header)
+            }
+            return .held(id: id, copiedAt: copiedAt, payload: ClipPayload(mime: parts[3], data: body))
         case "ACK":
             guard parts.count == 2, let id = Int(parts[1]) else { throw DecodeError.badMessage(header) }
             return .ack(id: id)

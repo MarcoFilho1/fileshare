@@ -25,7 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         server = TabletServer(
             macId: PairingStore.macId,
             onReceive: { [weak self] payload in self?.received(payload) },
-            onState: { [weak self] state in self?.update(state) })
+            onState: { [weak self] state in self?.update(state) },
+            onHeldDelivered: { [weak self] payload in self?.show(last: "Entregue ao tablet quando ele acordou: \(payload.summary)") })
         let key = PairingStore.loadKey()
         forgetItem.isEnabled = key != nil
         server.setPairingKey(key)
@@ -58,10 +59,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func copied(_ payload: ClipPayload) {
-        guard !paused, connected else { return }
+        guard !paused else { return }
         server.send(payload) { [weak self] result in
             switch result {
-            case .success: self?.show(last: "Enviado ao tablet: \(payload.summary)")
+            case .success(.delivered): self?.show(last: "Enviado ao tablet: \(payload.summary)")
+            case .success(.held): self?.show(last: "Guardado até o tablet acordar: \(payload.summary)")
             case .failure(let error): self?.show(last: "Falha ao enviar: \(error.localizedDescription)")
             }
         }
