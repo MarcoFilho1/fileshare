@@ -23,8 +23,7 @@ def main() -> None:
 
     subprocess.run(["adb", "forward", f"tcp:{PORT}", f"tcp:{PORT}"], check=True, capture_output=True)
     with socket.create_connection(("127.0.0.1", PORT), timeout=5) as s:
-        s.sendall(mime.encode() + b"\n" + data)
-        s.shutdown(socket.SHUT_WR)
+        s.sendall(f"{mime}\n{len(data)}\n".encode() + data)
         ok = s.recv(1) == b"k"
     print(f"{'enviado' if ok else 'sem confirmação do tablet'}: {mime}, {len(data)} bytes")
     sys.exit(0 if ok else 1)

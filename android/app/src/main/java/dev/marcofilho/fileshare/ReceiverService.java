@@ -15,7 +15,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,14 +27,16 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Recebe conteúdo do Mac e grava na área de transferência do tablet.
- * Protocolo provisório: "mime\n<bytes>" em 127.0.0.1:47800, exposto ao Mac por `adb forward`;
- * responde "k" depois de gravar.
+ * Protocolo provisório: "mime\ntamanho\n<bytes>" em 127.0.0.1:47800, exposto ao Mac por `adb forward`;
+ * responde "k" depois de gravar. O tamanho vem no cabeçalho porque o túnel do adb não repassa
+ * o fechamento só da escrita (half-close).
  */
 public class ReceiverService extends Service {
     static final String TAG = "FileShare";
     static final String CLIP_LABEL = "FileShare";
     static final int PORT = 47800;
     private static final int MAX_CACHED_IMAGES = 10;
+    private static final int MAX_PAYLOAD = 25 * 1024 * 1024;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private volatile boolean running;
@@ -78,12 +80,10 @@ public class ReceiverService extends Service {
     private void handle(Socket s) throws IOException {
         InputStream in = new BufferedInputStream(s.getInputStream());
         String mime = readLine(in);
-        ByteArrayOutputStream buf = new ByteArrayOutputStream();
-        byte[] b = new byte[65536];
-        int r;
-        while ((r = in.read(b)) != -1) buf.write(b, 0, r);
-        byte[] data = buf.toByteArray();
-        if (data.length == 0) throw new IOException("empty payload");
+        int size = Integer.parseInt(readLine(in));
+        if (size <= 0 || size > MAX_PAYLOAD) throw new IOException("invalid size " + size);
+        byte[] data = new byte[size];
+        new DataInputStream(in).readFully(data);
 
         if (mime.startsWith("text/")) {
             String text = new String(data, StandardCharsets.UTF_8);
