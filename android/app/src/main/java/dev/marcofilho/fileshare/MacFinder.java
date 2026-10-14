@@ -6,51 +6,76 @@ import android.net.nsd.NsdServiceInfo;
 import android.util.Log;
 
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Procura o Mac na rede local pelo serviço Bonjour/NSD "_fileshare._tcp". */
+/**
+ * Procura na rede local o serviço "_fileshare._tcp" do Mac pareado (id no registro TXT);
+ * outros Macs com FileShare na mesma rede são ignorados.
+ */
 final class MacFinder {
     static final String SERVICE_TYPE = "_fileshare._tcp.";
 
-    record Found(String name, InetAddress host, int port) {
+    record Found(InetAddress host, int port) {
     }
 
     private MacFinder() {
     }
 
-    /** Bloqueia até achar um Mac ou estourar o tempo; retorna null se não achou. */
+    /** Bloqueia até achar o Mac ou estourar o tempo; retorna null se não achou. */
     @SuppressWarnings("deprecation") // resolveService: a alternativa só existe a partir do Android 14
-    static Found find(Context ctx, long timeoutMs) throws InterruptedException {
+    static Found find(Context ctx, String macId, long timeoutMs) throws InterruptedException {
         NsdManager nsd = ctx.getSystemService(NsdManager.class);
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<Found> result = new AtomicReference<>();
+        Queue<NsdServiceInfo> toResolve = new ArrayDeque<>();
+        boolean[] resolving = {false};
 
-        NsdManager.DiscoveryListener discovery = new NsdManager.DiscoveryListener() {
-            private boolean resolving;
-
-            @Override
-            public void onServiceFound(NsdServiceInfo info) {
-                synchronized (this) {
-                    if (resolving) return;
-                    resolving = true;
-                }
-                nsd.resolveService(info, new NsdManager.ResolveListener() {
-                    @Override
-                    public void onServiceResolved(NsdServiceInfo r) {
-                        result.set(new Found(r.getServiceName(), r.getHost(), r.getPort()));
+        // O NSD resolve um serviço por vez: vai tirando da fila até achar o id certo.
+        Runnable[] resolveNext = new Runnable[1];
+        resolveNext[0] = () -> {
+            NsdServiceInfo next;
+            synchronized (toResolve) {
+                if (resolving[0] || (next = toResolve.poll()) == null) return;
+                resolving[0] = true;
+            }
+            nsd.resolveService(next, new NsdManager.ResolveListener() {
+                @Override
+                public void onServiceResolved(NsdServiceInfo r) {
+                    byte[] id = r.getAttributes().get("id");
+                    if (id != null && macId.equals(new String(id, StandardCharsets.UTF_8))) {
+                        result.set(new Found(r.getHost(), r.getPort()));
                         done.countDown();
                     }
+                    finished();
+                }
 
-                    @Override
-                    public void onResolveFailed(NsdServiceInfo r, int error) {
-                        Log.w(BridgeService.TAG, "resolve failed: " + error);
-                        synchronized (this) {
-                            resolving = false;
-                        }
+                @Override
+                public void onResolveFailed(NsdServiceInfo r, int error) {
+                    Log.w(BridgeService.TAG, "resolve failed: " + error);
+                    finished();
+                }
+
+                private void finished() {
+                    synchronized (toResolve) {
+                        resolving[0] = false;
                     }
-                });
+                    resolveNext[0].run();
+                }
+            });
+        };
+
+        NsdManager.DiscoveryListener discovery = new NsdManager.DiscoveryListener() {
+            @Override
+            public void onServiceFound(NsdServiceInfo info) {
+                synchronized (toResolve) {
+                    toResolve.add(info);
+                }
+                resolveNext[0].run();
             }
 
             @Override

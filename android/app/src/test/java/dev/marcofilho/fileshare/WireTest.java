@@ -49,6 +49,16 @@ public class WireTest {
     }
 
     @Test
+    public void authCarriesSixteenByteNonce() throws IOException {
+        byte[] nonce = new byte[16];
+        nonce[0] = (byte) 0xA0;
+        Wire.Message m = Wire.decode(Wire.messageBytes(Wire.Message.auth(nonce)));
+        assertEquals(Wire.Type.AUTH, m.type);
+        assertArrayEquals(nonce, m.data);
+        assertThrows(IOException.class, () -> Wire.decode("AUTH AAAA\n".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
     public void rejectsOversizedFrame() {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(new byte[]{0x7f, (byte) 0xff, (byte) 0xff, (byte) 0xff}));
         assertThrows(IOException.class, () -> Wire.read(in));

@@ -8,6 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusLine = NSMenuItem(title: "Iniciando…", action: nil, keyEquivalent: "")
     private let lastLine = NSMenuItem(title: "Nada enviado ainda", action: nil, keyEquivalent: "")
     private let pauseItem = NSMenuItem(title: "Pausar", action: #selector(togglePause), keyEquivalent: "p")
+    private let pairItem = NSMenuItem(title: "Parear tablet…", action: #selector(pair), keyEquivalent: "")
+    private let forgetItem = NSMenuItem(title: "Esquecer tablet", action: #selector(forget), keyEquivalent: "")
+    private let pairingWindow = PairingWindow()
 
     private var server: TabletServer!
     private var watcher: PasteboardWatcher!
@@ -18,9 +21,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setUpMenu()
 
         server = TabletServer(
+            macId: PairingStore.macId,
             onReceive: { [weak self] payload in self?.received(payload) },
             onState: { [weak self] state in self?.update(state) })
-        server.start()
+        let key = PairingStore.loadKey()
+        forgetItem.isEnabled = key != nil
+        server.setPairingKey(key)
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
         watcher.start()
     }
@@ -31,10 +37,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusLine.isEnabled = false
         lastLine.isEnabled = false
         pauseItem.target = self
+        pairItem.target = self
+        forgetItem.target = self
+        menu.autoenablesItems = false
         menu.addItem(statusLine)
         menu.addItem(lastLine)
         menu.addItem(.separator())
         menu.addItem(pauseItem)
+        menu.addItem(pairItem)
+        menu.addItem(forgetItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Sair do FileShare", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
@@ -62,13 +73,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func update(_ state: TabletServer.State) {
         switch state {
-        case .starting: statusLine.title = "Iniciando…"
+        case .unpaired: statusLine.title = "Nenhum tablet pareado: use Parear tablet…"
         case .waiting: statusLine.title = "Aguardando o tablet no Wi-Fi"
-        case .connected(let name): statusLine.title = "Conectado: \(name) (Wi-Fi)"
+        case .connected(let name):
+            statusLine.title = "Conectado: \(name) (Wi-Fi, criptografado)"
+            pairingWindow.close()
+        case .rejected: statusLine.title = "Recusei um aparelho sem a chave do pareamento"
         case .failed(let reason): statusLine.title = "Erro de rede: \(reason)"
         }
         if case .connected = state { connected = true } else { connected = false }
         updateIcon()
+    }
+
+    /// Gera uma chave nova (substitui o tablet anterior) e mostra o QR.
+    @objc private func pair() {
+        let key = SecureChannel.randomBytes(32)
+        guard PairingStore.saveKey(key) else {
+            return show(last: "Não consegui guardar a chave no Keychain")
+        }
+        forgetItem.isEnabled = true
+        server.setPairingKey(key)
+        pairingWindow.show(link: PairingLink.url(macId: PairingStore.macId, name: Host.current().localizedName ?? "Mac", key: key))
+    }
+
+    @objc private func forget() {
+        PairingStore.deleteKey()
+        forgetItem.isEnabled = false
+        server.setPairingKey(nil)
     }
 
     @objc private func togglePause() {

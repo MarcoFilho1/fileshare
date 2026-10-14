@@ -2,6 +2,8 @@ import Foundation
 
 /// Mensagens trocadas numa conexão permanente entre Mac e tablet.
 public enum WireMessage: Equatable, Sendable {
+    /// Única mensagem em claro: o nonce de cada lado para derivar as chaves da sessão.
+    case auth(nonce: Data)
     case hello(name: String)
     case clip(id: Int, payload: ClipPayload)
     case ack(id: Int)
@@ -9,8 +11,8 @@ public enum WireMessage: Equatable, Sendable {
     case pong
 }
 
-/// Formato: [tamanho: UInt32 big-endian][cabeçalho "TIPO args\n"][corpo opcional].
-/// O tamanho na frente separa as mensagens na conexão e é o que a criptografia (PR C) vai envolver.
+/// Formato: [tamanho: UInt32 big-endian][quadro]. O quadro é a mensagem "TIPO args\n" + corpo;
+/// depois do AUTH, cada quadro vai cifrado pelo SecureChannel.
 public enum Wire {
     public static let maxPayload = 25 * 1024 * 1024
     static let maxFrame = maxPayload + 1024
@@ -21,15 +23,20 @@ public enum Wire {
     }
 
     public static func encode(_ message: WireMessage) -> Data {
-        let body = messageBytes(message)
+        frame(messageBytes(message))
+    }
+
+    /// Prefixa o tamanho.
+    public static func frame(_ body: Data) -> Data {
         var out = Data(capacity: 4 + body.count)
         withUnsafeBytes(of: UInt32(body.count).bigEndian) { out.append(contentsOf: $0) }
         out.append(body)
         return out
     }
 
-    static func messageBytes(_ message: WireMessage) -> Data {
+    public static func messageBytes(_ message: WireMessage) -> Data {
         switch message {
+        case .auth(let nonce): return Data("AUTH \(nonce.base64EncodedString())\n".utf8)
         case .hello(let name): return Data("HELLO \(name)\n".utf8)
         case .clip(let id, let payload):
             var d = Data("CLIP \(id) \(payload.mime)\n".utf8)
@@ -41,12 +48,17 @@ public enum Wire {
         }
     }
 
-    static func decodeMessage(_ bytes: Data) throws -> WireMessage {
+    public static func decodeMessage(_ bytes: Data) throws -> WireMessage {
         guard let nl = bytes.firstIndex(of: UInt8(ascii: "\n")) else { throw DecodeError.badMessage("sem cabeçalho") }
         let header = String(decoding: bytes[bytes.startIndex..<nl], as: UTF8.self)
         let body = Data(bytes[(nl + 1)...])
         let parts = header.split(separator: " ", maxSplits: 2).map(String.init)
         switch parts.first {
+        case "AUTH":
+            guard parts.count == 2, let nonce = Data(base64Encoded: parts[1]), nonce.count == 16 else {
+                throw DecodeError.badMessage(header)
+            }
+            return .auth(nonce: nonce)
         case "HELLO":
             return .hello(name: parts.count > 1 ? header.dropFirst(6).description : "")
         case "CLIP":
@@ -62,23 +74,23 @@ public enum Wire {
     }
 }
 
-/// Junta os bytes que chegam da rede e devolve as mensagens completas.
-public struct WireDecoder {
+/// Junta os bytes que chegam da rede e devolve os quadros completos (ainda cifrados, se for o caso).
+public struct FrameDecoder {
     private var buffer = Data()
 
     public init() {}
 
-    public mutating func append(_ chunk: Data) throws -> [WireMessage] {
+    public mutating func append(_ chunk: Data) throws -> [Data] {
         buffer.append(chunk)
-        var messages: [WireMessage] = []
+        var frames: [Data] = []
         while buffer.count >= 4 {
             let size = buffer.prefix(4).reduce(0) { $0 << 8 | Int($1) }
             guard size > 0, size <= Wire.maxFrame else { throw Wire.DecodeError.frameTooLarge(size) }
             guard buffer.count >= 4 + size else { break }
             let start = buffer.startIndex + 4
-            messages.append(try Wire.decodeMessage(Data(buffer[start..<start + size])))
+            frames.append(Data(buffer[start..<start + size]))
             buffer = Data(buffer[(start + size)...])
         }
-        return messages
+        return frames
     }
 }

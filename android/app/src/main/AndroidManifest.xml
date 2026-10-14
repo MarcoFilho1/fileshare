@@ -24,6 +24,17 @@
         <service android:name=".BridgeService" android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- Aberta pelo QR do Mac (câmera): fileshare://pair?v=1&id=...&name=...&k=... -->
+        <activity android:name=".PairActivity" android:exported="true"
+            android:excludeFromRecents="true" android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="fileshare" android:host="pair" />
+            </intent-filter>
+        </activity>
+
         <activity android:name=".ReadClipActivity" android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="" />
