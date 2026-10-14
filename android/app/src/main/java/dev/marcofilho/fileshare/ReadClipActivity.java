@@ -38,12 +38,12 @@ public class ReadClipActivity extends Activity {
             if (p == null) {
                 if (!auto) MacSender.toast(this, "Nada para enviar");
             } else if (auto && isRepeat(p)) {
-                Log.i(ReceiverService.TAG, "skip: same content already sent");
+                Log.i(BridgeService.TAG, "skip: same content already sent");
             } else {
                 MacSender.send(this, p);
             }
         } catch (Exception e) {
-            Log.e(ReceiverService.TAG, "read clipboard failed", e);
+            Log.e(BridgeService.TAG, "read clipboard failed", e);
             MacSender.toast(this, "Não consegui ler a área de transferência");
         }
         finish();

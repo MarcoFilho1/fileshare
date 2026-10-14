@@ -11,13 +11,14 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | **v0.1.0** | Tablet → Mac pelo botão **Enviar ao Mac** nas Configurações rápidas |
 | v1.0.0 | Tablet → Mac automático: copiou, já está no Mac |
 | **v1.1.0** | App de barra de menu no Mac: Mac → tablet automático |
-| v2 (em desenvolvimento) | Conexão por Wi-Fi com pareamento por QR code e criptografia |
+| **v2.0.0** | Sem cabo: conexão pelo Wi-Fi, pareamento por QR code e tudo criptografado |
 
 Veja o [plano](docs/plano.md).
 
 ### Limitações conhecidas
 
-- **Precisa do cabo USB**: por enquanto a conexão passa pelo túnel do `adb`. Desconectou, parou. O Wi-Fi vem na v2.
+- Mac e tablet precisam estar no mesmo Wi-Fi.
+- Um tablet pareado por vez: parear de novo substitui o anterior.
 - O Android só deixa um app comum ler a área de transferência quando ele está em primeiro plano. Por isso o botão abre uma tela invisível por um instante.
 - Imagens copiadas no Samsung Notes chegam como JPG (é o formato que o próprio app entrega).
 
@@ -30,7 +31,7 @@ brew install android-platform-tools openjdk@17 android-commandlinetools
 sdkmanager "platforms;android-36" "build-tools;36.0.0"
 ```
 
-No tablet: ative as **Opções do desenvolvedor** e a **Depuração USB**, e conecte o cabo.
+No tablet: ative as **Opções do desenvolvedor** e a **Depuração USB** e conecte o cabo para instalar o app. Depois disso, a conexão entre os dois é pelo Wi-Fi.
 
 ### Android
 
@@ -51,9 +52,13 @@ open build/FileShare.app        # ícone ⇄ aparece na barra de menu
 scripts/test.sh                 # testes (funciona só com as Command Line Tools)
 ```
 
-Com o app aberto e o cabo conectado: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
+**Parear (uma vez):** ícone ⇄ → **Parear tablet…** → aponte a câmera do tablet para o QR code e toque no link. Depois disso, com os dois no mesmo Wi-Fi, o tablet acha o Mac sozinho: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
 
-`tools/send_to_tablet.py` continua disponível para enviar um texto ou imagem de teste sem o app.
+## Segurança
+
+- O QR code leva uma chave secreta de 32 bytes, guardada no Keychain do Mac e cifrada pelo Android Keystore no tablet.
+- Cada conexão deriva chaves novas (HKDF-SHA256 com nonces dos dois lados) e cifra tudo com ChaCha20-Poly1305; mensagens repetidas ou adulteradas são recusadas.
+- Sem pareamento o Mac não aparece na rede; pareado, ele se anuncia com nome genérico e só responde a quem prova ter a chave.
 
 ## Estrutura
 
