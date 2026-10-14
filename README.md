@@ -9,8 +9,9 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | Versão | O que faz |
 |---|---|
 | **v0.1.0** | Tablet → Mac pelo botão **Enviar ao Mac** nas Configurações rápidas |
-| v1 | Tablet → Mac automático: copiou, já está no Mac |
-| v2 (em desenvolvimento) | App de barra de menu no Mac com Mac → tablet automático ✅; conexão por Wi-Fi com pareamento por QR code |
+| v1.0.0 | Tablet → Mac automático: copiou, já está no Mac |
+| **v1.1.0** | App de barra de menu no Mac: Mac → tablet automático |
+| v2 (em desenvolvimento) | Conexão por Wi-Fi com pareamento por QR code e criptografia |
 
 Veja o [plano](docs/plano.md).
 

@@ -16,7 +16,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>FileShare</string>
     <key>CFBundleExecutable</key><string>FileShare</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>2.0.0-dev</string>
+    <key>CFBundleShortVersionString</key><string>1.1.0</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
 </dict>
