@@ -1,5 +1,6 @@
 import AppKit
 import FileShareCore
+import ServiceManagement
 
 /// Ícone na barra de menu: liga a área de transferência do Mac ao tablet nos dois sentidos.
 @MainActor
@@ -10,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pauseItem = NSMenuItem(title: "Pausar", action: #selector(togglePause), keyEquivalent: "p")
     private let pairItem = NSMenuItem(title: "Parear tablet…", action: #selector(pair), keyEquivalent: "")
     private let forgetItem = NSMenuItem(title: "Esquecer tablet", action: #selector(forget), keyEquivalent: "")
+    private let loginItem = NSMenuItem(title: "Abrir ao iniciar o Mac", action: #selector(toggleLoginItem), keyEquivalent: "")
     private let pairingWindow = PairingWindow()
 
     private var server: TabletServer!
@@ -27,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let key = PairingStore.loadKey()
         forgetItem.isEnabled = key != nil
         server.setPairingKey(key)
+        enableLoginItemOnFirstInstall()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
         watcher.start()
     }
@@ -39,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pauseItem.target = self
         pairItem.target = self
         forgetItem.target = self
+        loginItem.target = self
         menu.autoenablesItems = false
         menu.addItem(statusLine)
         menu.addItem(lastLine)
@@ -46,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(pauseItem)
         menu.addItem(pairItem)
         menu.addItem(forgetItem)
+        menu.addItem(loginItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Sair do FileShare", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
@@ -100,6 +105,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PairingStore.deleteKey()
         forgetItem.isEnabled = false
         server.setPairingKey(nil)
+    }
+
+    // MARK: Abrir ao iniciar
+
+    /// Na primeira vez que roda instalado em /Applications, já liga a abertura automática.
+    private func enableLoginItemOnFirstInstall() {
+        let key = "loginItemConfigured"
+        if !UserDefaults.standard.bool(forKey: key), Bundle.main.bundlePath.hasPrefix("/Applications/") {
+            UserDefaults.standard.set(true, forKey: key)
+            try? SMAppService.mainApp.register()
+        }
+        refreshLoginItem()
+    }
+
+    @objc private func toggleLoginItem() {
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled {
+                try service.unregister()
+            } else {
+                try service.register()
+            }
+        } catch {
+            show(last: "Não consegui mudar a abertura automática: \(error.localizedDescription)")
+        }
+        if service.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
+        refreshLoginItem()
+    }
+
+    private func refreshLoginItem() {
+        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
     }
 
     @objc private func togglePause() {
