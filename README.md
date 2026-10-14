@@ -8,15 +8,16 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 
 | Versão | O que faz |
 |---|---|
-| **v0.1.0** | Mac → tablet automático; tablet → Mac pelo botão **Enviar ao Mac** nas Configurações rápidas |
+| **v0.1.0** | Tablet → Mac pelo botão **Enviar ao Mac** nas Configurações rápidas |
 | v1 (em teste) | Tablet → Mac automático: copiou, já está no Mac |
-| próximas | Conexão por Wi-Fi com pareamento por QR code e app de barra de menu no Mac |
+| próxima (v2) | Mac → tablet automático, conexão por Wi-Fi com pareamento por QR code e app de barra de menu no Mac |
 
-Hoje a conexão passa pelo **cabo USB** (túnel do `adb`). O Wi-Fi vem nas próximas versões. Veja o [plano](docs/plano.md).
+Veja o [plano](docs/plano.md).
 
 ### Limitações conhecidas
 
-- Mac → tablet: por enquanto o envio é feito pelo script `tools/send_to_tablet.py`; a detecção automática de cópias no Mac chega com o app da barra de menu.
+- **Precisa do cabo USB**: por enquanto a conexão passa pelo túnel do `adb`. Desconectou, parou. O Wi-Fi vem na v2.
+- **Mac → tablet ainda é manual**: o Mac ainda não detecta cópias sozinho; dá para enviar com `tools/send_to_tablet.py`. A detecção automática chega com o app da barra de menu.
 - O Android só deixa um app comum ler a área de transferência quando ele está em primeiro plano. Por isso o botão abre uma tela invisível por um instante.
 - Imagens copiadas no Samsung Notes chegam como JPG (é o formato que o próprio app entrega).
 
