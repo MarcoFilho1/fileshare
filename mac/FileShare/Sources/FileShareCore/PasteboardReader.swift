@@ -27,7 +27,7 @@ public enum PasteboardReader {
             let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
             guard let url = urls?.first, isImageFile(url),
                   let data = try? Data(contentsOf: url), let png = ImageConversion.png(from: data),
-                  png.count <= Framing.maxPayload
+                  png.count <= Wire.maxPayload
             else { return nil }
             return ClipPayload(mime: "image/png", data: png)
         }

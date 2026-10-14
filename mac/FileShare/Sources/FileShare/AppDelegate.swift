@@ -5,12 +5,11 @@ import FileShareCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private let statusLine = NSMenuItem(title: "Procurando o tablet…", action: nil, keyEquivalent: "")
+    private let statusLine = NSMenuItem(title: "Iniciando…", action: nil, keyEquivalent: "")
     private let lastLine = NSMenuItem(title: "Nada enviado ainda", action: nil, keyEquivalent: "")
     private let pauseItem = NSMenuItem(title: "Pausar", action: #selector(togglePause), keyEquivalent: "p")
 
-    private var link: TabletLink!
-    private var tunnel: AdbTunnel!
+    private var server: TabletServer!
     private var watcher: PasteboardWatcher!
     private var connected = false
     private var paused = false
@@ -18,18 +17,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setUpMenu()
 
-        link = TabletLink { [weak self] payload in self?.received(payload) }
-        do {
-            try link.startListening()
-        } catch {
-            show(last: "Erro: não consegui receber do tablet (\(error.localizedDescription))")
-        }
-        tunnel = AdbTunnel { [weak self] ok in self?.setConnected(ok) }
-        tunnel.start()
+        server = TabletServer(
+            onReceive: { [weak self] payload in self?.received(payload) },
+            onState: { [weak self] state in self?.update(state) })
+        server.start()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
         watcher.start()
-
-        if AdbTunnel.adbPath == nil { statusLine.title = "adb não encontrado (brew install android-platform-tools)" }
     }
 
     private func setUpMenu() {
@@ -50,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func copied(_ payload: ClipPayload) {
         guard !paused, connected else { return }
-        link.send(payload) { [weak self] result in
+        server.send(payload) { [weak self] result in
             switch result {
             case .success: self?.show(last: "Enviado ao tablet: \(payload.summary)")
             case .failure(let error): self?.show(last: "Falha ao enviar: \(error.localizedDescription)")
@@ -67,9 +60,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func setConnected(_ ok: Bool) {
-        connected = ok
-        statusLine.title = ok ? "Conectado ao tablet (USB)" : "Tablet não encontrado: conecte o cabo USB"
+    private func update(_ state: TabletServer.State) {
+        switch state {
+        case .starting: statusLine.title = "Iniciando…"
+        case .waiting: statusLine.title = "Aguardando o tablet no Wi-Fi"
+        case .connected(let name): statusLine.title = "Conectado: \(name) (Wi-Fi)"
+        case .failed(let reason): statusLine.title = "Erro de rede: \(reason)"
+        }
+        if case .connected = state { connected = true } else { connected = false }
         updateIcon()
     }
 
