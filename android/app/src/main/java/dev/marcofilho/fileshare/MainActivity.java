@@ -13,7 +13,11 @@ public class MainActivity extends Activity {
         TextView tv = new TextView(this);
         tv.setPadding(48, 48, 48, 48);
         tv.setTextSize(18);
-        tv.setText("FileShare\n\nServiço iniciado. Pode sair deste app.");
+        PairingStore.Pairing pairing = PairingStore.load(this);
+        tv.setText(pairing != null
+                ? "FileShare\n\nPareado com " + pairing.macName() + ". Serviço iniciado: pode sair deste app."
+                : "FileShare\n\nAinda não pareado.\n\nNo Mac, clique no ícone ⇄ da barra de menu → \"Parear tablet…\" "
+                        + "e aponte a câmera do tablet para o QR code.");
         setContentView(tv);
         requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
         startForegroundService(new Intent(this, BridgeService.class));

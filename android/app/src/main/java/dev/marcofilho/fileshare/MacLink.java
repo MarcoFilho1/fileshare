@@ -8,6 +8,7 @@ import android.util.Log;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -19,8 +20,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Conexão permanente com o Mac pelo Wi-Fi: acha o Mac por NSD, conecta, manda PING a cada 20 s
- * e reconecta sozinha (espera crescente até 30 s) quando a conexão cai.
+ * Conexão permanente e criptografada com o Mac pareado: acha o Mac por NSD, autentica com a chave
+ * do pareamento (AUTH + HELLO cifrado), manda PING a cada 20 s e reconecta sozinha (espera
+ * crescente até 30 s) quando a conexão cai.
  */
 final class MacLink {
     interface Listener {
@@ -32,6 +34,7 @@ final class MacLink {
     private static final int PING_MS = 20_000;
     private static final int READ_TIMEOUT_MS = 60_000;
     private static final long MAX_BACKOFF_MS = 30_000;
+    private static final long UNPAIRED_WAIT_MS = 60_000;
 
     static volatile MacLink current;
 
@@ -43,6 +46,8 @@ final class MacLink {
     private volatile boolean running;
     private volatile Socket socket;
     private volatile OutputStream out;
+    private volatile SecureChannel channel;
+    private volatile boolean ready;
     private Thread loop;
 
     MacLink(Context ctx, Listener listener) {
@@ -72,13 +77,19 @@ final class MacLink {
         }
     }
 
+    /** Pareamento novo: larga a conexão atual (chave antiga) e conecta de novo. */
+    void repair() {
+        closeSocket();
+        wake();
+    }
+
     boolean isConnected() {
-        return out != null;
+        return ready;
     }
 
     /** Envia ao Mac e espera a confirmação. */
     void send(String mime, byte[] data, long timeoutMs) throws Exception {
-        if (out == null) throw new IOException("Mac não conectado");
+        if (!ready) throw new IOException("Mac não conectado");
         int id = nextId.getAndIncrement();
         CompletableFuture<Void> ack = new CompletableFuture<>();
         pending.put(id, ack);
@@ -93,32 +104,45 @@ final class MacLink {
     private void run() {
         long backoff = 1000;
         while (running) {
-            try {
-                listener.onState("Procurando o Mac no Wi-Fi…");
-                MacFinder.Found mac = MacFinder.find(ctx, 15_000);
-                if (mac != null) {
-                    session(mac);
-                    backoff = 1000; // conectou: a próxima tentativa começa rápida
+            long wait;
+            PairingStore.Pairing pairing = PairingStore.load(ctx);
+            if (pairing == null) {
+                listener.onState("Não pareado: no Mac, use \"Parear tablet…\" e leia o QR");
+                wait = UNPAIRED_WAIT_MS;
+            } else {
+                try {
+                    listener.onState("Procurando o " + pairing.macName() + " no Wi-Fi…");
+                    MacFinder.Found mac = MacFinder.find(ctx, pairing.macId(), 15_000);
+                    if (mac != null) {
+                        session(mac, pairing);
+                        backoff = 1000; // estava conectado: a próxima tentativa começa rápida
+                    }
+                    if (running) listener.onState(pairing.macName() + " não encontrado; tentando de novo");
+                } catch (SecureChannel.DecryptException e) {
+                    Log.w(BridgeService.TAG, "pairing key rejected");
+                    listener.onState("O Mac não reconheceu este tablet: pareie de novo pelo QR");
+                    backoff = MAX_BACKOFF_MS;
+                } catch (InterruptedException e) {
+                    return;
+                } catch (Exception e) {
+                    Log.w(BridgeService.TAG, "link error: " + e);
+                    if (running) listener.onState(pairing.macName() + " não encontrado; tentando de novo");
                 }
-            } catch (InterruptedException e) {
-                return;
-            } catch (Exception e) {
-                Log.w(BridgeService.TAG, "link error: " + e);
+                wait = backoff;
+                backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
             }
             if (!running) return;
-            listener.onState("Mac não encontrado; tentando de novo");
             synchronized (sleepLock) {
                 try {
-                    sleepLock.wait(backoff);
+                    sleepLock.wait(wait);
                 } catch (InterruptedException e) {
                     return;
                 }
             }
-            backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
         }
     }
 
-    private void session(MacFinder.Found mac) throws IOException {
+    private void session(MacFinder.Found mac, PairingStore.Pairing pairing) throws Exception {
         Socket s = new Socket();
         try {
             s.connect(new InetSocketAddress(mac.host(), mac.port()), 5000);
@@ -127,9 +151,20 @@ final class MacLink {
             s.setTcpNoDelay(true);
             socket = s;
             out = new BufferedOutputStream(s.getOutputStream(), 1 << 16);
+            DataInputStream in = new DataInputStream(new BufferedInputStream(s.getInputStream(), 1 << 16));
+
+            // Handshake: troca de nonces em claro e prova mútua de que os dois têm a chave.
+            byte[] tabletNonce = SecureChannel.randomBytes(16);
+            write(Wire.Message.auth(tabletNonce));
+            Wire.Message auth = Wire.decode(Wire.readFrame(in));
+            if (auth.type != Wire.Type.AUTH) throw new IOException("expected AUTH");
+            channel = new SecureChannel(pairing.key(), tabletNonce, auth.data);
             write(Wire.Message.hello(deviceName()));
-            Log.i(BridgeService.TAG, "connected to " + mac.name() + " at " + mac.host() + ":" + mac.port());
-            listener.onState("Conectado ao " + mac.name());
+            Wire.Message hello = Wire.decode(channel.open(Wire.readFrame(in)));
+            if (hello.type != Wire.Type.HELLO) throw new IOException("expected HELLO");
+            ready = true;
+            Log.i(BridgeService.TAG, "connected (encrypted) to " + hello.text + " at " + mac.host() + ":" + mac.port());
+            listener.onState("Conectado ao " + hello.text + " (criptografado)");
 
             Thread pinger = new Thread(() -> {
                 try {
@@ -143,9 +178,8 @@ final class MacLink {
             }, "fileshare-ping");
             pinger.start();
 
-            DataInputStream in = new DataInputStream(new BufferedInputStream(s.getInputStream(), 1 << 16));
             while (running) {
-                Wire.Message m = Wire.read(in);
+                Wire.Message m = Wire.decode(channel.open(Wire.readFrame(in)));
                 switch (m.type) {
                     case CLIP:
                         listener.onClip(m.text, m.data);
@@ -163,22 +197,35 @@ final class MacLink {
                         break;
                 }
             }
+        } catch (IOException e) {
+            // o Mac fecha a conexão sem responder ao HELLO quando a chave não confere
+            if (!ready && channel != null && e instanceof EOFException) throw new SecureChannel.DecryptException();
+            throw e;
         } finally {
             closeSocket();
             for (CompletableFuture<Void> f : pending.values()) f.completeExceptionally(new IOException("conexão caiu"));
             pending.clear();
-            Log.i(BridgeService.TAG, "disconnected from " + mac.name());
+            Log.i(BridgeService.TAG, "disconnected");
         }
     }
 
+    /** Cifra quando o canal já existe; só o AUTH vai em claro. */
     private synchronized void write(Wire.Message m) throws IOException {
         OutputStream o = out;
         if (o == null) throw new IOException("Mac não conectado");
-        Wire.write(o, m);
+        byte[] bytes = Wire.messageBytes(m);
+        SecureChannel ch = channel;
+        try {
+            Wire.writeFrame(o, ch != null ? ch.seal(bytes) : bytes);
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IOException(e);
+        }
     }
 
     private void closeSocket() {
+        ready = false;
         out = null;
+        channel = null;
         Socket s = socket;
         socket = null;
         if (s != null) {
