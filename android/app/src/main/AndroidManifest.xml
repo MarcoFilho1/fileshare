@@ -17,6 +17,18 @@
         <service android:name=".ReceiverService" android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <activity android:name=".ReadClipActivity" android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="" />
+
+        <service android:name=".SendTileService" android:exported="true"
+            android:label="Enviar ao Mac" android:icon="@android:drawable/ic_menu_send"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <provider android:name=".ClipProvider" android:authorities="dev.marcofilho.fileshare.clips"
             android:exported="false" android:grantUriPermissions="true" />
     </application>
