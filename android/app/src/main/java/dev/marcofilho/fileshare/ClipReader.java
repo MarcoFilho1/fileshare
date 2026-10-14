@@ -21,7 +21,7 @@ final class ClipReader {
     /** Retorna null se não houver nada a enviar (vazio ou conteúdo que veio do próprio Mac). */
     static Payload read(Context ctx, ClipData clip) throws Exception {
         if (clip == null || clip.getItemCount() == 0) return null;
-        if (ReceiverService.CLIP_LABEL.contentEquals(String.valueOf(clip.getDescription().getLabel()))) return null;
+        if (BridgeService.CLIP_LABEL.contentEquals(String.valueOf(clip.getDescription().getLabel()))) return null;
 
         ClipData.Item item = clip.getItemAt(0);
         Uri uri = item.getUri();
@@ -49,7 +49,7 @@ final class ClipReader {
             // Samsung Notes usa "userId@autoridade"; tenta de novo sem o prefixo.
             String auth = img.getEncodedAuthority();
             if (auth == null || !auth.contains("@")) throw e;
-            Log.w(ReceiverService.TAG, "retry without user prefix: " + e);
+            Log.w(BridgeService.TAG, "retry without user prefix: " + e);
             return readAll(ctx, img.buildUpon().encodedAuthority(auth.substring(auth.indexOf('@') + 1)).build());
         }
     }

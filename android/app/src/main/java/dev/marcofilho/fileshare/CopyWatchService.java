@@ -18,6 +18,7 @@ import java.util.Locale;
 public class CopyWatchService extends AccessibilityService {
     private static final long READ_DELAY_MS = 150;
     private static final long DEBOUNCE_MS = 800;
+    private static final long FROM_MAC_GRACE_MS = 2000;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private long lastTrigger;
@@ -28,8 +29,9 @@ public class CopyWatchService extends AccessibilityService {
         if (reason == null) return;
         long now = SystemClock.elapsedRealtime();
         if (now - lastTrigger < DEBOUNCE_MS) return;
+        if (now - BridgeService.lastSetFromMacAt < FROM_MAC_GRACE_MS) return; // fomos nós, com o que veio do Mac
         lastTrigger = now;
-        Log.i(ReceiverService.TAG, "copy detected (" + reason + ") in " + e.getPackageName());
+        Log.i(BridgeService.TAG, "copy detected (" + reason + ") in " + e.getPackageName());
         main.postDelayed(() -> startActivity(new Intent(this, ReadClipActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 .putExtra(ReadClipActivity.EXTRA_AUTO, true)), READ_DELAY_MS);

@@ -16,6 +16,6 @@ public class MainActivity extends Activity {
         tv.setText("FileShare\n\nServiço iniciado. Pode sair deste app.");
         setContentView(tv);
         requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
-        startForegroundService(new Intent(this, ReceiverService.class));
+        startForegroundService(new Intent(this, BridgeService.class));
     }
 }
