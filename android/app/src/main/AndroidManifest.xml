@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Samsung Notes guarda a imagem copiada num ContentProvider próprio; sem isso o
          Android 11+ esconde o pacote e a leitura falha com "No content provider". -->
@@ -55,6 +56,13 @@
             </intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/copy_watch" />
         </service>
+
+        <receiver android:name=".StartReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <provider android:name=".ClipProvider" android:authorities="dev.marcofilho.fileshare.clips"
             android:exported="false" android:grantUriPermissions="true" />
