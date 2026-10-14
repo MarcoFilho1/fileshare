@@ -37,3 +37,21 @@ public enum Framing {
         return (mime, size, second + 1)
     }
 }
+
+/// Junta os pedaços que chegam da rede até formar uma mensagem completa.
+public struct FrameAccumulator {
+    private var buffer = Data()
+
+    public init() {}
+
+    /// Retorna o conteúdo quando a mensagem termina; nil enquanto faltam bytes.
+    public mutating func append(_ chunk: Data) throws -> ClipPayload? {
+        buffer.append(chunk)
+        guard let header = try Framing.parseHeader(buffer) else { return nil }
+        let end = header.headerLength + header.size
+        guard buffer.count >= end else { return nil }
+        let body = Data(buffer[buffer.startIndex + header.headerLength ..< buffer.startIndex + end])
+        buffer.removeAll()
+        return ClipPayload(mime: header.mime, data: body)
+    }
+}

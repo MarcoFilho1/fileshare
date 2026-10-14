@@ -28,3 +28,17 @@ struct FramingTests {
         #expect(throws: Framing.DecodeError.badHeader) { try Framing.parseHeader(Data(repeating: 0x61, count: 300)) }
     }
 }
+
+struct FrameAccumulatorTests {
+    @Test func assemblesMessageArrivingInPieces() throws {
+        let payload = ClipPayload(mime: "image/png", data: Data((0..<1000).map { UInt8($0 % 256) }))
+        let wire = Framing.encode(payload)
+        var acc = FrameAccumulator()
+        var result: ClipPayload?
+        for start in stride(from: 0, to: wire.count, by: 7) {
+            #expect(result == nil)
+            result = try acc.append(wire.subdata(in: start..<min(start + 7, wire.count)))
+        }
+        #expect(result == payload)
+    }
+}
