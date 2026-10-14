@@ -17,8 +17,12 @@ Descobertas:
 - O Samsung Notes copia tudo como `text/html`; imagens vêm como `<img src="content://0@...">` de um provider dele.
 - O túnel do `adb` não repassa o fechamento só da escrita (half-close): o protocolo leva o tamanho no cabeçalho e uma confirmação `k`.
 
-## Próximas etapas
+## Versões
 
-1. **Conexão Wi-Fi**: descoberta por Bonjour, pareamento por QR code com chave compartilhada, mensagens criptografadas, reconexão automática.
-2. **App do Mac (Swift)**: barra de menu, detecção automática de cópias (texto, PNG/TIFF, arquivos de imagem do Finder), ignora senhas de gerenciadores (`org.nspasteboard.ConcealedType`).
-3. **Uso diário**: abrir com o sistema, retomar após reiniciar o tablet, guia de bateria do Samsung, opção "Mac" no menu Compartilhar e na seleção inteligente da S Pen.
+- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia.
+
+## Próximas etapas (D: uso diário)
+
+1. App do Mac abre junto com o sistema; serviço do tablet volta sozinho após reiniciar ou atualizar.
+2. Conexão com o tablet em repouso (Doze/economia de bateria do One UI) e guia de exceções de bateria.
+3. Opção "Mac" no menu Compartilhar e na seleção inteligente da S Pen.
