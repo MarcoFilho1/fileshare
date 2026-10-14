@@ -28,6 +28,9 @@ final class MacLink {
     interface Listener {
         void onClip(String mime, byte[] data);
 
+        /** Cópia que o Mac guardou enquanto o tablet estava fora, feita em copiedAt (ms). */
+        void onHeld(String mime, byte[] data, long copiedAt);
+
         void onState(String state);
     }
 
@@ -48,6 +51,7 @@ final class MacLink {
     private volatile OutputStream out;
     private volatile SecureChannel channel;
     private volatile boolean ready;
+    private volatile long lastReceivedAt;
     private Thread loop;
 
     MacLink(Context ctx, Listener listener) {
@@ -81,6 +85,19 @@ final class MacLink {
     void repair() {
         closeSocket();
         wake();
+    }
+
+    /**
+     * Tela ligou. Sem conexão: tenta agora. Com conexão, mas sem notícias do Mac há mais de um ciclo
+     * de PING (o tablet dormiu e a rede foi cortada): ela provavelmente morreu, então refaz.
+     */
+    void onScreenOn() {
+        if (ready && android.os.SystemClock.elapsedRealtime() - lastReceivedAt > PING_MS + 5_000) {
+            Log.i(BridgeService.TAG, "stale connection after sleep; reconnecting");
+            repair();
+        } else if (!ready) {
+            wake();
+        }
     }
 
     boolean isConnected() {
@@ -163,6 +180,7 @@ final class MacLink {
             Wire.Message hello = Wire.decode(channel.open(Wire.readFrame(in)));
             if (hello.type != Wire.Type.HELLO) throw new IOException("expected HELLO");
             ready = true;
+            lastReceivedAt = android.os.SystemClock.elapsedRealtime();
             Log.i(BridgeService.TAG, "connected (encrypted) to " + hello.text + " at " + mac.host() + ":" + mac.port());
             listener.onState("Conectado ao " + hello.text + " (criptografado)");
 
@@ -180,7 +198,12 @@ final class MacLink {
 
             while (running) {
                 Wire.Message m = Wire.decode(channel.open(Wire.readFrame(in)));
+                lastReceivedAt = android.os.SystemClock.elapsedRealtime();
                 switch (m.type) {
+                    case HELD:
+                        listener.onHeld(m.text, m.data, m.copiedAt);
+                        write(Wire.Message.ack(m.id));
+                        break;
                     case CLIP:
                         listener.onClip(m.text, m.data);
                         write(Wire.Message.ack(m.id));

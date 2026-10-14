@@ -59,6 +59,24 @@ public class WireTest {
     }
 
     @Test
+    public void heldCarriesCopyTime() throws IOException {
+        Wire.Message m = Wire.decode(Wire.messageBytes(
+                Wire.Message.held(2, 1_792_000_000_123L, "text/plain", "guardado".getBytes(StandardCharsets.UTF_8))));
+        assertEquals(Wire.Type.HELD, m.type);
+        assertEquals(2, m.id);
+        assertEquals(1_792_000_000_123L, m.copiedAt);
+        assertEquals("text/plain", m.text);
+        assertEquals("guardado", new String(m.data, StandardCharsets.UTF_8));
+    }
+
+    /** Mesmo cabeçalho que o Wire.swift gera para .held. */
+    @Test
+    public void heldMatchesMacFormat() {
+        byte[] bytes = Wire.messageBytes(Wire.Message.held(2, 1_792_000_000_123L, "text/plain", "x".getBytes(StandardCharsets.UTF_8)));
+        assertEquals("HELD 2 1792000000123 text/plain\nx", new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    @Test
     public void rejectsOversizedFrame() {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(new byte[]{0x7f, (byte) 0xff, (byte) 0xff, (byte) 0xff}));
         assertThrows(IOException.class, () -> Wire.read(in));

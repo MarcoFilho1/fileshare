@@ -4,9 +4,12 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -36,9 +39,18 @@ public class BridgeService extends Service {
     /** Quando gravamos algo vindo do Mac; o aviso de "copiado" que o sistema mostra em seguida não é do usuário. */
     static volatile long lastSetFromMacAt;
 
+    /** Quando o usuário copiou algo no tablet (relógio de parede, ms), para comparar com o HELD do Mac. */
+    static volatile long lastUserCopyAt;
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private MacLink link;
     private ConnectivityManager.NetworkCallback networkCallback;
+    private final BroadcastReceiver screenOn = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context ctx, Intent intent) {
+            if (link != null) link.onScreenOn();
+        }
+    };
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -50,6 +62,15 @@ public class BridgeService extends Service {
             link = new MacLink(this, new MacLink.Listener() {
                 @Override
                 public void onClip(String mime, byte[] data) {
+                    received(mime, data);
+                }
+
+                @Override
+                public void onHeld(String mime, byte[] data, long copiedAt) {
+                    if (copiedAt < lastUserCopyAt) {
+                        Log.i(TAG, "held copy from Mac is older than the last copy on the tablet; ignored");
+                        return;
+                    }
                     received(mime, data);
                 }
 
@@ -66,6 +87,9 @@ public class BridgeService extends Service {
                 }
             };
             getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(networkCallback);
+            IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_ON);
+            f.addAction(Intent.ACTION_USER_PRESENT);
+            registerReceiver(screenOn, f, RECEIVER_NOT_EXPORTED);
         }
         return START_STICKY;
     }
@@ -119,7 +143,10 @@ public class BridgeService extends Service {
 
     @Override
     public void onDestroy() {
-        if (networkCallback != null) getSystemService(ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
+        if (networkCallback != null) {
+            getSystemService(ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
+            unregisterReceiver(screenOn);
+        }
         if (link != null) link.stop();
         super.onDestroy();
     }

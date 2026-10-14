@@ -11,30 +11,38 @@ import java.util.Base64;
 /**
  * Protocolo v2 (igual ao Wire.swift do Mac): [tamanho: int32 big-endian][quadro]. O quadro é a
  * mensagem "TIPO args\n" + corpo; depois do AUTH, cada quadro vai cifrado pelo SecureChannel.
- * Mensagens: AUTH nonce (única em claro), HELLO nome, CLIP id mime + bytes, ACK id, PING, PONG.
+ * Mensagens: AUTH nonce (única em claro), HELLO nome, CLIP id mime + bytes,
+ * HELD id copiadoEm(ms) mime + bytes (cópia que o Mac guardou com o tablet fora), ACK id, PING, PONG.
  */
 final class Wire {
     static final int MAX_PAYLOAD = 25 * 1024 * 1024;
     static final int MAX_FRAME = MAX_PAYLOAD + 1024;
 
-    enum Type { AUTH, HELLO, CLIP, ACK, PING, PONG }
+    enum Type { AUTH, HELLO, CLIP, HELD, ACK, PING, PONG }
 
     static final class Message {
         final Type type;
         final int id;
         final String text; // nome no HELLO, mime no CLIP
         final byte[] data;
+        final long copiedAt; // só no HELD
 
         private Message(Type type, int id, String text, byte[] data) {
+            this(type, id, text, data, 0);
+        }
+
+        private Message(Type type, int id, String text, byte[] data, long copiedAt) {
             this.type = type;
             this.id = id;
             this.text = text;
             this.data = data;
+            this.copiedAt = copiedAt;
         }
 
         static Message auth(byte[] nonce) { return new Message(Type.AUTH, 0, null, nonce); }
         static Message hello(String name) { return new Message(Type.HELLO, 0, name, null); }
         static Message clip(int id, String mime, byte[] data) { return new Message(Type.CLIP, id, mime, data); }
+        static Message held(int id, long copiedAt, String mime, byte[] data) { return new Message(Type.HELD, id, mime, data, copiedAt); }
         static Message ack(int id) { return new Message(Type.ACK, id, null, null); }
         static Message ping() { return new Message(Type.PING, 0, null, null); }
         static Message pong() { return new Message(Type.PONG, 0, null, null); }
@@ -62,6 +70,7 @@ final class Wire {
                 break;
             case HELLO: header = "HELLO " + m.text + "\n"; break;
             case CLIP: header = "CLIP " + m.id + " " + m.text + "\n"; break;
+            case HELD: header = "HELD " + m.id + " " + m.copiedAt + " " + m.text + "\n"; break;
             case ACK: header = "ACK " + m.id + "\n"; break;
             case PING: header = "PING\n"; break;
             default: header = "PONG\n"; break;
@@ -94,7 +103,7 @@ final class Wire {
         if (nl == frame.length) throw new IOException("no header");
         String header = new String(frame, 0, nl, StandardCharsets.UTF_8);
         byte[] body = Arrays.copyOfRange(frame, nl + 1, frame.length);
-        String[] parts = header.split(" ", 3);
+        String[] parts = header.split(" ", header.startsWith("HELD ") ? 4 : 3);
         try {
             switch (parts[0]) {
                 case "AUTH":
@@ -106,6 +115,9 @@ final class Wire {
                 case "CLIP":
                     if (parts.length != 3 || body.length == 0) break;
                     return Message.clip(Integer.parseInt(parts[1]), parts[2], body);
+                case "HELD":
+                    if (parts.length != 4 || body.length == 0) break;
+                    return Message.held(Integer.parseInt(parts[1]), Long.parseLong(parts[2]), parts[3], body);
                 case "ACK":
                     if (parts.length != 2) break;
                     return Message.ack(Integer.parseInt(parts[1]));
