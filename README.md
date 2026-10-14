@@ -9,15 +9,15 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | Versão | O que faz |
 |---|---|
 | **v0.1.0** | Tablet → Mac pelo botão **Enviar ao Mac** nas Configurações rápidas |
-| v1 (em teste) | Tablet → Mac automático: copiou, já está no Mac |
-| próxima (v2) | Mac → tablet automático, conexão por Wi-Fi com pareamento por QR code e app de barra de menu no Mac |
+| v1.0.0 | Tablet → Mac automático: copiou, já está no Mac |
+| **v1.1.0** | App de barra de menu no Mac: Mac → tablet automático |
+| v2 (em desenvolvimento) | Conexão por Wi-Fi com pareamento por QR code e criptografia |
 
 Veja o [plano](docs/plano.md).
 
 ### Limitações conhecidas
 
 - **Precisa do cabo USB**: por enquanto a conexão passa pelo túnel do `adb`. Desconectou, parou. O Wi-Fi vem na v2.
-- **Mac → tablet ainda é manual**: o Mac ainda não detecta cópias sozinho; dá para enviar com `tools/send_to_tablet.py`. A detecção automática chega com o app da barra de menu.
 - O Android só deixa um app comum ler a área de transferência quando ele está em primeiro plano. Por isso o botão abre uma tela invisível por um instante.
 - Imagens copiadas no Samsung Notes chegam como JPG (é o formato que o próprio app entrega).
 
@@ -45,16 +45,21 @@ Abra o app **FileShare** uma vez no tablet para iniciar o serviço. Depois adici
 ### Mac
 
 ```sh
-mac/receiver.py                              # recebe o que vem do tablet e põe na área de transferência
-tools/send_to_tablet.py text "olá"           # envia texto ao tablet
-tools/send_to_tablet.py image print.png      # envia imagem ao tablet
+cd mac/FileShare
+scripts/build-app.sh            # gera build/FileShare.app
+open build/FileShare.app        # ícone ⇄ aparece na barra de menu
+scripts/test.sh                 # testes (funciona só com as Command Line Tools)
 ```
+
+Com o app aberto e o cabo conectado: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
+
+`tools/send_to_tablet.py` continua disponível para enviar um texto ou imagem de teste sem o app.
 
 ## Estrutura
 
 ```
 android/   app Android (Java): serviço de recepção, botão e leitura da área de transferência
-mac/       receptor provisório (Python) até o app da barra de menu
+mac/       app de barra de menu (Swift Package, sem Xcode)
 tools/     scripts de desenvolvimento e teste
 docs/      plano e resultados dos testes
 ```
