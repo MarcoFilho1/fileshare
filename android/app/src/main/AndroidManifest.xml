@@ -6,6 +6,12 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Samsung Notes guarda a imagem copiada num ContentProvider próprio; sem isso o
+         Android 11+ esconde o pacote e a leitura falha com "No content provider". -->
+    <queries>
+        <package android:name="com.samsung.android.app.notes" />
+    </queries>
+
     <application android:label="FileShare" android:icon="@android:drawable/ic_menu_share">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
