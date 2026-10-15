@@ -10,14 +10,18 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongConsumer;
 
 /**
  * Conexão permanente e criptografada com o Mac pareado: acha o Mac por NSD, autentica com a chave
@@ -40,6 +44,13 @@ final class MacLink {
     private static final long UNPAIRED_WAIT_MS = 60_000;
 
     static volatile MacLink current;
+
+    /** O Mac recusou o arquivo (FAIL), com o motivo dele. */
+    static final class RefusedException extends IOException {
+        RefusedException(String reason) {
+            super(reason);
+        }
+    }
 
     private final Context ctx;
     private final Listener listener;
@@ -113,6 +124,34 @@ final class MacLink {
         try {
             write(Wire.Message.clip(id, mime, data));
             ack.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } finally {
+            pending.remove(id);
+        }
+    }
+
+    /**
+     * Envia um arquivo do menu Compartilhar: FILE com nome e tamanho, depois o conteúdo em PARTs, e
+     * espera o Mac confirmar que salvou. O arquivo nunca fica inteiro na memória.
+     */
+    void sendFile(String name, String mime, long size, InputStream in, LongConsumer progress, long timeoutMs) throws Exception {
+        if (!ready) throw new IOException("Mac não conectado");
+        int id = nextId.getAndIncrement();
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        pending.put(id, ack);
+        try {
+            write(Wire.Message.file(id, size, mime, name));
+            byte[] buf = new byte[Wire.PART_SIZE];
+            long sent = 0;
+            while (sent < size && !ack.isDone()) { // o Mac pode recusar no meio do caminho
+                int n = in.read(buf, 0, (int) Math.min(buf.length, size - sent));
+                if (n < 0) throw new IOException("o arquivo acabou antes do tamanho informado");
+                write(Wire.Message.part(id, Arrays.copyOf(buf, n)));
+                sent += n;
+                progress.accept(sent);
+            }
+            ack.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw e.getCause() instanceof Exception cause ? cause : e;
         } finally {
             pending.remove(id);
         }
@@ -211,6 +250,11 @@ final class MacLink {
                     case ACK: {
                         CompletableFuture<Void> f = pending.remove(m.id);
                         if (f != null) f.complete(null);
+                        break;
+                    }
+                    case FAIL: {
+                        CompletableFuture<Void> f = pending.remove(m.id);
+                        if (f != null) f.completeExceptionally(new RefusedException(m.text));
                         break;
                     }
                     case PING:

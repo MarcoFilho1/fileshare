@@ -19,13 +19,22 @@ struct WireTests {
         .hello(name: "Galaxy Tab S9 FE"),
         .clip(id: 1, payload: ClipPayload(mime: "image/png", data: Data([0x89, 0x50, 0x0A, 0x00]))),
         .held(id: 2, copiedAt: 1_792_000_000_123, payload: ClipPayload(mime: "text/plain", data: Data("guardado".utf8))),
+        .file(id: 3, size: 1_048_576, mime: "application/pdf", name: "Aula 3 - resumo.pdf"),
+        .part(id: 3, data: Data([0x25, 0x50, 0x44, 0x46, 0x0A])),
         .ack(id: 42),
+        .fail(id: 3, reason: "arquivo maior que 100 MB"),
         .ping,
         .pong,
     ])
     func roundTrips(_ message: WireMessage) throws {
         var decoder = FrameDecoder()
         #expect(try Self.decodeAll(&decoder, Wire.encode(message)) == [message])
+    }
+
+    /// Mesmo cabeçalho do WireTest.java: o nome do arquivo vai por último e pode ter espaços.
+    @Test func fileHeaderMatchesAndroidFormat() {
+        let bytes = Wire.messageBytes(.file(id: 4, size: 2048, mime: "application/pdf", name: "Nota de aula.pdf"))
+        #expect(String(decoding: bytes, as: UTF8.self) == "FILE 4 2048 application/pdf Nota de aula.pdf\n")
     }
 
     @Test func splitsAndJoinsMessagesAcrossChunks() throws {

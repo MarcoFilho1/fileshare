@@ -48,6 +48,9 @@ final class TabletServer {
         var decoder = FrameDecoder()
         let startedAt = Date()
         var lastSeen = Date()
+        var tabletName = "tablet"
+        /// Arquivos do menu Compartilhar ainda chegando, pelo id do FILE.
+        var incoming: [Int: IncomingFile] = [:]
 
         init(_ conn: NWConnection) {
             self.conn = conn
@@ -67,6 +70,8 @@ final class TabletServer {
     private let onReceive: (ClipPayload) -> Void
     private let onState: (State) -> Void
     private let onHeldDelivered: (ClipPayload) -> Void
+    private let onFile: (_ url: URL, _ mime: String, _ from: String) -> Void
+    private let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
     private var held = HeldClip()
     private var pairingKey: Data?
     private var listener: NWListener?
@@ -81,11 +86,13 @@ final class TabletServer {
     init(macId: String,
          onReceive: @escaping (ClipPayload) -> Void,
          onState: @escaping (State) -> Void,
-         onHeldDelivered: @escaping (ClipPayload) -> Void) {
+         onHeldDelivered: @escaping (ClipPayload) -> Void,
+         onFile: @escaping (_ url: URL, _ mime: String, _ from: String) -> Void) {
         self.macId = macId
         self.onReceive = onReceive
         self.onState = onState
         self.onHeldDelivered = onHeldDelivered
+        self.onFile = onFile
         startWatchdog()
     }
 
@@ -241,10 +248,11 @@ final class TabletServer {
             write(.hello(name: macName), to: session)
             session.phase = .ready
             session.lastSeen = Date()
+            if !name.isEmpty { session.tabletName = name }
             if let old = active { close(old) }
             active = session
             candidate = nil
-            report(.connected(name: name.isEmpty ? "tablet" : name))
+            report(.connected(name: session.tabletName))
             deliverHeld(to: session)
         case .ready:
             session.lastSeen = Date()
@@ -253,16 +261,57 @@ final class TabletServer {
                 write(.ack(id: id), to: session)
                 held.discard() // o que veio do tablet é mais novo que o que estava guardado
                 DispatchQueue.main.async { self.onReceive(payload) }
+            case .file(let id, let size, let mime, let name):
+                do {
+                    let file = try IncomingFile(name: name, mime: mime, size: size, directory: downloads)
+                    session.incoming[id] = file
+                    if file.isComplete { finishFile(id, in: session) }
+                } catch {
+                    refuseFile(id, error, in: session)
+                }
+            case .part(let id, let data):
+                guard let file = session.incoming[id] else { break } // arquivo já recusado
+                do {
+                    try file.append(data)
+                    if file.isComplete { finishFile(id, in: session) }
+                } catch {
+                    session.incoming[id] = nil
+                    refuseFile(id, error, in: session)
+                }
             case .ack(let id):
                 pending.removeValue(forKey: id)?(.success(()))
             case .ping:
                 write(.pong, to: session)
             case .pong:
                 break
-            case .auth, .hello, .held:
+            case .auth, .hello, .held, .fail:
                 throw Wire.DecodeError.badMessage("mensagem fora de lugar")
             }
         }
+    }
+
+    private func finishFile(_ id: Int, in session: Session) {
+        guard let file = session.incoming.removeValue(forKey: id) else { return }
+        do {
+            let url = try file.finish()
+            write(.ack(id: id), to: session)
+            let from = session.tabletName
+            DispatchQueue.main.async { self.onFile(url, file.mime, from) }
+        } catch {
+            refuseFile(id, error, in: session)
+        }
+    }
+
+    private func refuseFile(_ id: Int, _ error: Error, in session: Session) {
+        let reason: String
+        switch error {
+        case IncomingFile.Failure.tooLarge: reason = "arquivo maior que 100 MB"
+        case IncomingFile.Failure.moreThanAnnounced: reason = "chegou mais do que o anunciado"
+        case IncomingFile.Failure.io(let detail): reason = "não consegui salvar (\(detail))"
+        default: reason = error.localizedDescription
+        }
+        NSLog("FileShare: arquivo \(id) recusado: \(reason)")
+        write(.fail(id: id, reason: reason), to: session)
     }
 
     private func open(_ frame: Data, in session: Session) throws -> WireMessage {
@@ -288,6 +337,8 @@ final class TabletServer {
     private func close(_ session: Session) {
         session.conn.stateUpdateHandler = nil
         session.conn.cancel()
+        session.incoming.values.forEach { $0.discard() }
+        session.incoming.removeAll()
         if session === candidate { candidate = nil }
         guard session === active else { return }
         active = nil

@@ -1,6 +1,8 @@
 import AppKit
 import FileShareCore
 import ServiceManagement
+import UniformTypeIdentifiers
+import UserNotifications
 
 /// Ícone na barra de menu: liga a área de transferência do Mac ao tablet nos dois sentidos.
 @MainActor
@@ -26,7 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             macId: PairingStore.macId,
             onReceive: { [weak self] payload in self?.received(payload) },
             onState: { [weak self] state in self?.update(state) },
-            onHeldDelivered: { [weak self] payload in self?.show(last: "Entregue ao tablet quando ele acordou: \(payload.summary)") })
+            onHeldDelivered: { [weak self] payload in self?.show(last: "Entregue ao tablet quando ele acordou: \(payload.summary)") },
+            onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) })
+        setUpNotifications()
         let key = PairingStore.loadKey()
         forgetItem.isEnabled = key != nil
         server.setPairingKey(key)
@@ -76,6 +80,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             show(last: "Não consegui abrir a imagem recebida")
         }
+    }
+
+    // MARK: Arquivos do menu Compartilhar
+
+    private func setUpNotifications() {
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    /// Arquivo salvo em Downloads: avisa, e clicar no aviso abre o arquivo.
+    private func receivedFile(_ url: URL, mime: String, from tablet: String) {
+        let kind = Self.kind(of: mime)
+        show(last: "\(kind) recebido: \(url.lastPathComponent)")
+        let content = UNMutableNotificationContent()
+        content.title = "\(kind) recebido de \(tablet)"
+        content.body = "\(url.lastPathComponent) — clique para abrir"
+        content.sound = .default
+        content.userInfo = ["path": url.path]
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+    }
+
+    private static func kind(of mime: String) -> String {
+        if mime == "application/pdf" { return "PDF" }
+        if mime.hasPrefix("image/") { return "Imagem" }
+        if mime.hasPrefix("video/") { return "Vídeo" }
+        return "Arquivo"
     }
 
     private func update(_ state: TabletServer.State) {
@@ -156,5 +187,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "FileShare")
         image?.isTemplate = true
         statusItem.button?.image = image
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse) async {
+        guard let path = response.notification.request.content.userInfo["path"] as? String else { return }
+        await MainActor.run { _ = NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+    }
+
+    /// Mostra o aviso mesmo com o FileShare em primeiro plano (o menu aberto, por exemplo).
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
     }
 }
