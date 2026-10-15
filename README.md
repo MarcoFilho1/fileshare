@@ -54,6 +54,14 @@ scripts/test.sh                 # testes (funciona só com as Command Line Tools
 
 **Parear (uma vez):** ícone ⇄ → **Parear tablet…** → aponte a câmera do tablet para o QR code e toque no link. Depois disso, com os dois no mesmo Wi-Fi, o tablet acha o Mac sozinho: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
 
+## Bateria
+
+O macOS não avisa os apps quando algo é copiado (no Windows e no Android há esse aviso). Por isso o FileShare do Mac, como todo gerenciador de área de transferência para Mac (Maccy, Raycast, Paste…), consulta a cada 0,5 s um **contador** do sistema que muda a cada cópia. É a leitura de um único número; o conteúdo só é lido quando o contador muda, ou seja, quando você copiou algo.
+
+Essa checagem tem **folga** de 0,2 s: o macOS pode atrasá-la um pouco para fazê-la num momento em que o processador já acordou por outro motivo (relógio, rede, outros apps). Na maior parte das vezes o FileShare pega **carona** nesses despertares em vez de acordar o processador só para ele, e uma cópia continua sendo percebida em até 0,7 s.
+
+Entre os aparelhos não há varredura: a conexão fica aberta e cada lado manda a cópia na hora em que ela acontece. O único tráfego periódico é um sinal do tablet a cada 20 s para saber se a conexão continua viva.
+
 ## Segurança
 
 - O QR code leva uma chave secreta de 32 bytes, guardada no Keychain do Mac e cifrada pelo Android Keystore no tablet.
