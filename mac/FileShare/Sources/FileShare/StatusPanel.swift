@@ -52,13 +52,14 @@ final class StatusModel {
 
     /// O que muda a altura do painel (para a janela acompanhar).
     var layoutKey: [Int] {
-        [activity.count, paired ? 1 : 0, notificationsAllowed ? 1 : 0, sending == nil ? 0 : 1]
+        [notificationsAllowed ? 1 : 0]
     }
 }
 
 struct StatusPanelView: View {
     static let width: CGFloat = 340
     static let margin: CGFloat = 26
+    static let activityHeight: CGFloat = 4 * 22 + 3 * 8
 
     let model: StatusModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -72,10 +73,13 @@ struct StatusPanelView: View {
                            title: L10n.t("Sync", "Sincronizar"),
                            subtitle: model.paused ? L10n.t("Paused", "Pausado") : L10n.t("On", "Ligado"),
                            action: model.actions.togglePause)
+                    .help(L10n.t("Pause or resume sending and receiving copies between the Mac and the tablet",
+                                 "Pausa ou retoma o envio e o recebimento de cópias entre o Mac e o tablet"))
                 ToggleTile(symbol: "power", on: model.openAtLogin,
                            title: L10n.t("Open at Login", "Abrir ao iniciar"),
                            subtitle: model.openAtLogin ? L10n.t("On", "Ligado") : L10n.t("Off", "Desligado"),
                            action: model.actions.toggleLogin)
+                    .help(L10n.t("Open FileShare automatically when you log in", "Abre o FileShare sozinho quando você entra no Mac"))
             }
             activityTile
             HStack(spacing: 10) {
@@ -89,10 +93,11 @@ struct StatusPanelView: View {
                     TextRow(title: L10n.t("Turn On Notifications…", "Ativar notificações…"), symbol: "bell.badge",
                             action: model.actions.enableNotifications)
                 }
-                if model.paired {
-                    TextRow(title: L10n.t("Pair Another Tablet…", "Parear outro tablet…"), action: model.actions.pair)
-                    TextRow(title: L10n.t("Forget Tablet", "Esquecer tablet"), action: model.actions.forget)
-                }
+                // sempre as mesmas linhas, para nada mudar de lugar debaixo do ponteiro
+                TextRow(title: model.paired ? L10n.t("Pair Another Tablet…", "Parear outro tablet…") : L10n.t("Pair Tablet…", "Parear tablet…"),
+                        action: model.actions.pair)
+                TextRow(title: L10n.t("Forget Tablet…", "Esquecer tablet…"), action: model.actions.forget)
+                    .disabled(!model.paired)
                 TextRow(title: L10n.t("Quit FileShare", "Sair do FileShare"), action: model.actions.quit)
             }
         }
@@ -143,17 +148,17 @@ struct StatusPanelView: View {
                     }
                 }
                 Spacer(minLength: 0)
-            }
-            if !model.paired {
-                Button(action: model.actions.pair) {
-                    Text(L10n.t("Pair Tablet…", "Parear tablet…"))
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .foregroundStyle(.white)
-                        .background(Color.accentColor, in: Capsule())
+                if !model.paired {
+                    Button(action: model.actions.pair) {
+                        Text(L10n.t("Pair…", "Parear…"))
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .foregroundStyle(.white)
+                            .background(Color.accentColor, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(12)
@@ -184,6 +189,7 @@ struct StatusPanelView: View {
             Text(L10n.t("Recent", "Recentes"))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
             if let sending = model.sending {
                 HStack(spacing: 10) {
                     ActivityIcon(kind: .toTablet)
@@ -199,13 +205,7 @@ struct StatusPanelView: View {
                     }
                 }
             }
-            if model.activity.isEmpty && model.sending == nil {
-                Text(L10n.t("Copy something on the Mac or the tablet.", "Copie algo no Mac ou no tablet."))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
-            }
-            ForEach(model.activity) { item in
+            ForEach(model.activity.prefix(model.sending == nil ? 4 : 3)) { item in
                 HStack(spacing: 10) {
                     ActivityIcon(kind: item.kind)
                     Text(item.text)
@@ -219,6 +219,22 @@ struct StatusPanelView: View {
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            }
+            // altura fixa de 4 linhas: atividade nova não empurra os botões de baixo
+            .frame(maxWidth: .infinity, minHeight: Self.activityHeight, maxHeight: Self.activityHeight, alignment: .top)
+            .overlay {
+                if model.activity.isEmpty && model.sending == nil {
+                    VStack(spacing: 6) {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.tertiary)
+                        Text(L10n.t("Copy something on the Mac or the tablet.", "Copie algo no Mac ou no tablet."))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .clipped()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -319,17 +335,18 @@ private struct TextRow: View {
     var symbol: String?
     let action: () -> Void
     @State private var hover = false
+    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
         Button(action: action) {
             HStack {
-                Text(title).font(.system(size: 13))
+                Text(title).font(.system(size: 13)).foregroundStyle(enabled ? .primary : .tertiary)
                 Spacer()
                 if let symbol { Image(systemName: symbol).foregroundStyle(.orange) }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0)))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(hover && enabled ? 0.08 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

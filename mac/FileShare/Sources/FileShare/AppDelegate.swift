@@ -61,17 +61,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePanel)
         statusItem.button?.sendAction(on: [.leftMouseDown, .rightMouseDown])
-        statusPanel.onVisibleChange = { [weak self] on in
-            self?.refreshHighlight()
-            if on { self?.refreshNotifications() }
-        }
+        statusPanel.onVisibleChange = { [weak self] _ in self?.refreshHighlight() }
         status.actions = .init(
             togglePause: { [weak self] in self?.togglePause() },
             toggleLogin: { [weak self] in self?.toggleLoginItem() },
             sendFile: { [weak self] in self?.chooseFilesToSend() },
             openFolder: { [weak self] in self?.statusPanel.hide(); self?.openReceivedFolder() },
             pair: { [weak self] in self?.statusPanel.hide(); self?.pair() },
-            forget: { [weak self] in self?.forget() },
+            forget: { [weak self] in self?.statusPanel.hide(); self?.confirmForget() },
             enableNotifications: { [weak self] in self?.statusPanel.hide(); self?.openNotificationSettings() },
             quit: { NSApp.terminate(nil) })
         updateIcon()
@@ -79,7 +76,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func togglePanel() {
         guard let icon = iconFrame(near: NSEvent.mouseLocation) else { return }
-        statusPanel.toggle(below: icon)
+        if statusPanel.isVisible { return statusPanel.hide() }
+        // confere os avisos antes de abrir: a linha "Ativar notificações" não aparece depois, empurrando as outras
+        guard Bundle.main.bundleIdentifier != nil else { return statusPanel.show(below: icon) }
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let allowed = settings.authorizationStatus == .authorized
+            DispatchQueue.main.async {
+                self.status.notificationsAllowed = allowed
+                self.statusPanel.show(below: icon)
+            }
+        }
     }
 
     /// O ⇄ fica aceso enquanto um dos painéis está aberto, como a Central de Controle.
@@ -224,15 +230,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Reconfere os avisos a cada abertura do painel: o item some assim que forem ligados nos Ajustes.
-    private func refreshNotifications() {
-        guard Bundle.main.bundleIdentifier != nil else { return } // fora do .app (demonstração) não há avisos
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            let allowed = settings.authorizationStatus == .authorized
-            DispatchQueue.main.async { self.status.notificationsAllowed = allowed }
-        }
-    }
-
     private func openNotificationSettings() {
         let id = Bundle.main.bundleIdentifier ?? "dev.marcofilho.fileshare"
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")!)
@@ -297,6 +294,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setPaired(true)
         server.setPairingKey(key)
         pairingWindow.show(link: PairingLink.url(macId: PairingStore.macId, name: Host.current().localizedName ?? "Mac", key: key))
+    }
+
+    /// Esquecer exige ler um QR de novo para voltar: pede confirmação, como o macOS faz.
+    private func confirmForget() {
+        let alert = NSAlert()
+        alert.messageText = L10n.t("Forget \(status.tabletName)?", "Esquecer o \(status.tabletName)?")
+        alert.informativeText = L10n.t("To connect again, you'll need to scan a new QR code on the tablet.",
+                                       "Para conectar de novo, será preciso ler um QR code novo no tablet.")
+        alert.alertStyle = .warning
+        alert.icon = NSApp.applicationIconImage
+        alert.addButton(withTitle: L10n.t("Forget", "Esquecer")).hasDestructiveAction = true
+        alert.addButton(withTitle: L10n.t("Cancel", "Cancelar"))
+        NSApp.activate()
+        if alert.runModal() == .alertFirstButtonReturn { forget() }
     }
 
     private func forget() {
