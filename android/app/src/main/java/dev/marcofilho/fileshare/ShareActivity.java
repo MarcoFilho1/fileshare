@@ -1,7 +1,6 @@
 package dev.marcofilho.fileshare;
 
 import android.app.Activity;
-import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,9 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 /**
- * Destino do menu Compartilhar (e do atalho direto com o nome do Mac). Não tem tela: repassa os
- * arquivos ao BridgeService, que já mantém a conexão, e fecha na hora para o usuário voltar ao app
- * de onde compartilhou. Texto compartilhado (um link, por exemplo) vai para a área de transferência do Mac.
+ * Destino do menu Compartilhar (e do atalho direto com o nome do Mac). Não tem tela: abre os
+ * arquivos enquanto tem a permissão de leitura (ela é desta tela e não passa para o serviço),
+ * entrega ao FileSender e fecha na hora para o usuário voltar ao app de onde compartilhou.
+ * Texto compartilhado (um link, por exemplo) vai para a área de transferência do Mac.
  */
 public class ShareActivity extends Activity {
     @Override
@@ -49,13 +49,16 @@ public class ShareActivity extends Activity {
             return;
         }
 
-        // A permissão de leitura veio para esta tela; o ClipData com a flag a estende ao serviço.
-        ClipData clip = ClipData.newRawUri("FileShare", uris.get(0));
-        for (int i = 1; i < uris.size(); i++) clip.addItem(new ClipData.Item(uris.get(i)));
-        Intent forward = new Intent(this, BridgeService.class)
-                .setAction(BridgeService.ACTION_SEND_FILES)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        forward.setClipData(clip);
-        startForegroundService(forward);
+        if (MacLink.current == null) startForegroundService(new Intent(this, BridgeService.class));
+        ArrayList<FileSender.Item> items = new ArrayList<>();
+        for (Uri uri : uris) {
+            try {
+                items.add(FileSender.open(this, uri));
+            } catch (Exception e) {
+                Log.e(BridgeService.TAG, "could not open shared file", e);
+                MacSender.toast(this, "Não consegui abrir o arquivo compartilhado");
+            }
+        }
+        FileSender.send(this, items);
     }
 }

@@ -34,60 +34,71 @@ final class FileSender {
     private FileSender() {
     }
 
-    static void send(Context ctx, MacLink link, List<Uri> uris) {
-        Context app = ctx.getApplicationContext();
-        for (Uri uri : uris) QUEUE.execute(() -> sendOne(app, link, uri));
+    /** Arquivo já aberto pela ShareActivity; size é -1 quando o app de origem não informa. */
+    record Item(String name, String mime, long size, InputStream in) {
     }
 
-    private static void sendOne(Context ctx, MacLink link, Uri uri) {
+    /** Lê nome, tipo e tamanho e abre o arquivo; precisa rodar enquanto a permissão de leitura vale. */
+    static Item open(Context ctx, Uri uri) throws IOException {
+        ContentResolver resolver = ctx.getContentResolver();
+        String mime = resolver.getType(uri);
+        if (mime == null || mime.contains(" ")) mime = "application/octet-stream";
+        String name = "arquivo";
+        long size = -1;
+        try (Cursor c = resolver.query(uri, new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE}, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                if (!c.isNull(0)) name = c.getString(0);
+                if (!c.isNull(1)) size = c.getLong(1);
+            }
+        }
+        InputStream in = resolver.openInputStream(uri);
+        if (in == null) throw new IOException("não consegui abrir " + uri);
+        return new Item(name.replaceAll("[\\r\\n]", " ").trim(), mime, size, in);
+    }
+
+    static void send(Context ctx, List<Item> items) {
+        Context app = ctx.getApplicationContext();
+        for (Item item : items) QUEUE.execute(() -> sendOne(app, item));
+    }
+
+    private static void sendOne(Context ctx, Item item) {
         NotificationManager nm = ctx.getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Arquivos enviados ao Mac", NotificationManager.IMPORTANCE_LOW));
-        ContentResolver resolver = ctx.getContentResolver();
-        String name = "arquivo";
+        String name = item.name();
         File copy = null;
+        InputStream in = item.in();
         try {
-            String mime = resolver.getType(uri);
-            if (mime == null || mime.contains(" ")) mime = "application/octet-stream";
-            long size = -1;
-            try (Cursor c = resolver.query(uri, new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE}, null, null, null)) {
-                if (c != null && c.moveToFirst()) {
-                    if (!c.isNull(0)) name = c.getString(0);
-                    if (!c.isNull(1)) size = c.getLong(1);
-                }
-            }
-            name = name.replaceAll("[\\r\\n]", " ").trim();
+            long size = item.size();
             if (size < 0) { // o app não informou o tamanho: copia antes para saber
                 copy = File.createTempFile("share", null, ctx.getCacheDir());
-                try (InputStream in = resolver.openInputStream(uri); OutputStream out = new FileOutputStream(copy)) {
-                    if (in == null) throw new IOException("não consegui abrir o arquivo");
+                try (OutputStream out = new FileOutputStream(copy)) {
                     in.transferTo(out);
                 }
+                in.close();
+                in = new FileInputStream(copy);
                 size = copy.length();
             }
             if (size > Wire.MAX_FILE_SIZE) {
                 MacSender.toast(ctx, name + " tem mais de 100 MB: não enviei");
                 return;
             }
-            if (!waitForConnection(link)) {
+            MacLink link = waitForConnection();
+            if (link == null) {
                 MacSender.toast(ctx, "Mac não conectado: " + name + " não foi enviado");
                 return;
             }
 
-            String label = name;
             long total = size;
             long[] lastUpdate = {0};
-            nm.notify(NOTIFICATION_ID, progress(ctx, label, 0, total));
-            try (InputStream in = copy != null ? new FileInputStream(copy) : resolver.openInputStream(uri)) {
-                if (in == null) throw new IOException("não consegui abrir o arquivo");
-                link.sendFile(name, mime, size, in, sent -> {
-                    long now = SystemClock.elapsedRealtime();
-                    if (now - lastUpdate[0] > 300) {
-                        lastUpdate[0] = now;
-                        nm.notify(NOTIFICATION_ID, progress(ctx, label, sent, total));
-                    }
-                }, ACK_TIMEOUT_MS);
-            }
-            Log.i(BridgeService.TAG, "file sent to Mac: " + mime + " " + size + " B");
+            nm.notify(NOTIFICATION_ID, progress(ctx, name, 0, total));
+            link.sendFile(name, item.mime(), size, in, sent -> {
+                long now = SystemClock.elapsedRealtime();
+                if (now - lastUpdate[0] > 300) {
+                    lastUpdate[0] = now;
+                    nm.notify(NOTIFICATION_ID, progress(ctx, name, sent, total));
+                }
+            }, ACK_TIMEOUT_MS);
+            Log.i(BridgeService.TAG, "file sent to Mac: " + item.mime() + " " + size + " B");
             MacSender.toast(ctx, "Enviado ao Mac: " + name + " (" + readable(size) + ")");
         } catch (MacLink.RefusedException e) {
             Log.w(BridgeService.TAG, "Mac refused file: " + e.getMessage());
@@ -99,17 +110,31 @@ final class FileSender {
             MacSender.toast(ctx, "Falha ao enviar " + name + " ao Mac");
         } finally {
             nm.cancel(NOTIFICATION_ID);
+            try {
+                in.close();
+            } catch (IOException ignored) {
+            }
             if (copy != null) copy.delete();
         }
     }
 
-    /** Logo depois de acordar o tablet a conexão pode estar se refazendo: espera um pouco. */
-    private static boolean waitForConnection(MacLink link) throws InterruptedException {
-        if (link.isConnected()) return true;
-        link.wake();
+    /**
+     * Logo depois de acordar o tablet (ou de o serviço subir) a conexão pode estar se refazendo:
+     * espera um pouco. Devolve a conexão pronta, ou null.
+     */
+    private static MacLink waitForConnection() throws InterruptedException {
         long until = SystemClock.elapsedRealtime() + CONNECT_WAIT_MS;
-        while (!link.isConnected() && SystemClock.elapsedRealtime() < until) Thread.sleep(200);
-        return link.isConnected();
+        boolean woke = false;
+        while (SystemClock.elapsedRealtime() < until) {
+            MacLink link = MacLink.current;
+            if (link != null && link.isConnected()) return link;
+            if (link != null && !woke) {
+                link.wake();
+                woke = true;
+            }
+            Thread.sleep(200);
+        }
+        return null;
     }
 
     private static Notification progress(Context ctx, String name, long sent, long total) {

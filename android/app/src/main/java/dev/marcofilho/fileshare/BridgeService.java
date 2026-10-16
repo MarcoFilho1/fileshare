@@ -33,8 +33,6 @@ import java.util.Arrays;
 public class BridgeService extends Service {
     static final String TAG = "FileShare";
     static final String CLIP_LABEL = "FileShare";
-    /** Vindo da ShareActivity: os arquivos estão no ClipData do intent. */
-    static final String ACTION_SEND_FILES = "dev.marcofilho.fileshare.SEND_FILES";
     private static final int NOTIFICATION_ID = 1;
     private static final int MAX_CACHED_IMAGES = 10;
 
@@ -94,12 +92,6 @@ public class BridgeService extends Service {
             registerReceiver(screenOn, f, RECEIVER_NOT_EXPORTED);
         }
         ShareTargets.update(this);
-        if (intent != null && ACTION_SEND_FILES.equals(intent.getAction()) && intent.getClipData() != null) {
-            ClipData clip = intent.getClipData();
-            java.util.List<Uri> uris = new java.util.ArrayList<>();
-            for (int i = 0; i < clip.getItemCount(); i++) uris.add(clip.getItemAt(i).getUri());
-            FileSender.send(this, link, uris);
-        }
         return START_STICKY;
     }
 
