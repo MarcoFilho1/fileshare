@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Esta página recebe a chave do pareamento (depois do "#", que nunca vai ao servidor).
      Nada de fora é carregado: só arquivos deste site, e nenhum envio de dados. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>Parear o tablet · FileShare</title>
@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="../style.css">
 <script src="../lang.js"></script>
 </head>
-<body>
+<body class="pair-page">
 <main class="pair">
   <img class="icon" src="../icon.png" alt="">
 
@@ -29,11 +29,11 @@
       <span lang="pt">Toque em Conectar para parear este tablet com o seu Mac pelo FileShare.</span>
       <span lang="en">Tap Connect to pair this tablet with your Mac in FileShare.</span>
     </p>
-    <a id="connect" class="button wide" href="#">
+    <a id="connect" class="btn btn-ink wide" href="#">
       <span lang="pt">Conectar</span><span lang="en">Connect</span>
     </a>
     <p class="gap-top">
-      <a id="show-install" href="#">
+      <a id="show-install" class="link" href="#">
         <span lang="pt">Ainda não tem o FileShare no tablet?</span>
         <span lang="en">Don't have FileShare on the tablet yet?</span>
       </a>
@@ -45,7 +45,7 @@
           <span lang="pt">Baixe o FileShare para Android:</span>
           <span lang="en">Download FileShare for Android:</span>
           <div class="gap-button">
-            <a class="button soft" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.apk">
+            <a class="btn btn-ghost" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.apk">
               <span lang="pt">Baixar FileShare.apk</span><span lang="en">Download FileShare.apk</span>
             </a>
           </div>
@@ -77,7 +77,7 @@
       <span lang="pt">Este link de pareamento está incompleto ou já foi usado. No Mac, clique no ícone ⇄ → Parear tablet… e leia o código com a câmera do tablet.</span>
       <span lang="en">This pairing link is incomplete or was already used. On the Mac, click the ⇄ icon → Pair Tablet… and scan the code with the tablet's camera.</span>
     </p>
-    <a class="button soft" href="../">
+    <a class="btn btn-ghost" href="../">
       <span lang="pt">Conhecer o FileShare</span><span lang="en">About FileShare</span>
     </a>
   </div>
