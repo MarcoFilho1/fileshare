@@ -369,15 +369,15 @@ extension AppDelegate {
         status.openAtLogin = true
         status.notificationsAllowed = state != "status-asleep"
         if state == "status" || state == "status-asleep" {
-            status.log(.toTablet, "“Reunião às 15h na sala 2”")
-            status.log(.fromTablet, "Correção prova 1.pdf")
-            status.log(.toTablet, "Imagem (1,2 MB)")
-            status.sending = ("Aula 7 - slides.pdf", 0.45)
+            status.log(.toTablet, L10n.t("“Meeting at 3pm, room 2”", "“Reunião às 15h na sala 2”"))
+            status.log(.fromTablet, L10n.t("Geography - class 7.pdf", "Geografia - aula 7.pdf"))
+            status.log(.toTablet, L10n.t("Image (1.2 MB)", "Imagem (1,2 MB)"))
+            status.sending = (L10n.t("Class 7 - slides.pdf", "Aula 7 - slides.pdf"), 0.45)
         }
         statusPanel.keepOpen = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             if state == "pairing" || state == "paired" {
-                pairingWindow.show(link: "fileshare://pair?v=1&id=demo&name=Mac&k=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                pairingWindow.show(link: PairingLink.url(macId: "demo", name: "Mac", key: Data(count: 32))) // chave falsa, só para a foto
                 if state == "paired" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.pairingWindow.connected(to: "Galaxy Tab S9 FE", closeAfter: false) } }
                 return
             }
