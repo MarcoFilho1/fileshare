@@ -5,7 +5,8 @@ cd "$(dirname "$0")/.."
 swift build -c release
 APP=build/FileShare.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"   # gerado por scripts/make-icon.swift
 cp "$(swift build -c release --show-bin-path)/FileShare" "$APP/Contents/MacOS/FileShare"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -16,8 +17,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>FileShare</string>
     <key>CFBundleExecutable</key><string>FileShare</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>2.1.0</string>
-    <key>CFBundleVersion</key><string>2.1.0</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundleShortVersionString</key><string>2.2.0</string>
+    <key>CFBundleVersion</key><string>2.2.0</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSLocalNetworkUsageDescription</key><string>O FileShare conversa com o seu tablet pela rede Wi-Fi local.</string>

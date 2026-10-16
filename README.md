@@ -13,6 +13,7 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | **v1.1.0** | App de barra de menu no Mac: Mac → tablet automático |
 | **v2.0.0** | Sem cabo: conexão pelo Wi-Fi, pareamento por QR code e tudo criptografado |
 | **v2.1.0** | Uso diário: abre sozinho com o sistema, entrega a cópia quando o tablet acorda, arquivos nos dois sentidos e o painel **Send to Tablet** |
+| **v2.2.0** | Ícone e interface nova: painel no estilo da Central de Controle no Mac, tela inicial com a configuração e a permissão de acessibilidade explicada no tablet |
 
 Veja o [plano](docs/plano.md).
 
@@ -55,7 +56,7 @@ open build/FileShare.app        # ícone ⇄ aparece na barra de menu
 scripts/test.sh                 # testes (funciona só com as Command Line Tools)
 ```
 
-**Parear (uma vez):** ícone ⇄ → **Parear tablet…** → aponte a câmera do tablet para o QR code e toque no link. Depois disso, com os dois no mesmo Wi-Fi, o tablet acha o Mac sozinho: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
+**Parear (uma vez):** na primeira vez que abre, o app do Mac já mostra o QR code (depois, clique no ícone ⇄ → **Parear tablet…**). Aponte a câmera do tablet para o código e toque no link. Depois disso, com os dois no mesmo Wi-Fi, o tablet acha o Mac sozinho: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
 
 ## Arquivos
 
@@ -69,9 +70,15 @@ scripts/test.sh                 # testes (funciona só com as Command Line Tools
 
 Para perceber o arrasto chegando perto, o app observa só os movimentos do mouse com o botão apertado. Ele não lê o teclado e não precisa de permissão especial.
 
+## Interface
+
+- **Mac:** clicar no ícone ⇄ abre um painel no estilo da Central de Controle, com o tablet e o estado da conexão, botões para pausar a sincronização e abrir ao iniciar, a atividade recente (com o progresso dos arquivos) e atalhos para enviar um arquivo ou abrir os recebidos.
+- **Tablet:** o app mostra o Mac pareado com o estado da conexão ao vivo e uma lista do que falta configurar (cópia automática, notificações, bateria sem restrição e botão nas Configurações rápidas). Cada item tem um botão que leva direto ao ajuste certo.
+- Textos em português ou inglês, conforme o idioma do aparelho. O ícone do app é gerado por `mac/FileShare/scripts/make-icon.swift`; o do Android usa a mesma geometria.
+
 ## Uso diário
 
-- **Abre sozinho:** o app do Mac abre junto com o sistema (ícone ⇄ → **Abrir ao iniciar o Mac**); o serviço do tablet volta sozinho depois de reiniciar ou atualizar.
+- **Abre sozinho:** o app do Mac abre junto com o sistema (botão **Abrir ao iniciar** no painel do ícone ⇄); o serviço do tablet volta sozinho depois de reiniciar ou atualizar.
 - **Tablet dormindo:** o Mac guarda a última cópia por 10 minutos e entrega quando o tablet acorda e reconecta; os arquivos esperam na fila do mesmo jeito.
 
 ## Bateria

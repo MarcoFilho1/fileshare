@@ -44,6 +44,9 @@ public class BridgeService extends Service {
     /** Quando o usuário copiou algo no tablet (relógio de parede, ms), para comparar com o HELD do Mac. */
     static volatile long lastUserCopyAt;
 
+    /** Tela inicial aberta: é avisada (na thread principal) quando o estado da conexão muda. */
+    static volatile Runnable statusListener;
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private MacLink link;
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -79,6 +82,10 @@ public class BridgeService extends Service {
                 @Override
                 public void onState(String state) {
                     nm.notify(NOTIFICATION_ID, notification(state));
+                    main.post(() -> {
+                        Runnable listener = statusListener;
+                        if (listener != null) listener.run();
+                    });
                 }
 
                 @Override
@@ -106,7 +113,7 @@ public class BridgeService extends Service {
         return new Notification.Builder(this, "bridge")
                 .setContentTitle("FileShare")
                 .setContentText(text)
-                .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+                .setSmallIcon(R.drawable.ic_stat_fileshare)
                 .setOngoing(true)
                 .build();
     }
@@ -124,7 +131,7 @@ public class BridgeService extends Service {
         nm.notify(uri.hashCode(), new Notification.Builder(this, FILES_CHANNEL)
                 .setContentTitle(kind + " recebido do " + macName)
                 .setContentText(name + " — toque para abrir (Downloads › FileShare)")
-                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setSmallIcon(R.drawable.ic_stat_fileshare)
                 .setContentIntent(tap)
                 .setAutoCancel(true)
                 .build());

@@ -56,6 +56,11 @@ final class PairingStore {
         }
     }
 
+    /** Esquece o Mac (o QR seguinte cria um pareamento novo). */
+    static void clear(Context ctx) {
+        prefs(ctx).edit().clear().apply();
+    }
+
     private static SharedPreferences prefs(Context ctx) {
         return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }

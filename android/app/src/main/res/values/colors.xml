@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cores no estilo do One UI: fundo cinza claro e cartões brancos bem arredondados. -->
+<resources>
+    <color name="screen">#F4F5F8</color>
+    <color name="card">#FFFFFF</color>
+    <color name="text">#16181D</color>
+    <color name="text_secondary">#6B7080</color>
+    <color name="divider">#14000000</color>
+    <color name="brand">#2166F5</color>
+    <color name="brand_soft">#1A2166F5</color>
+    <color name="ok">#1F9D55</color>
+    <color name="warn">#E08A00</color>
+    <color name="off">#9AA0AE</color>
+    <color name="icon_copy">#2F7BF6</color>
+    <color name="icon_bell">#F2683A</color>
+    <color name="icon_battery">#2BB673</color>
+    <color name="icon_tile">#7B5CF0</color>
+    <color name="icon_share">#13A9BD</color>
+    <color name="icon_folder">#F2A93B</color>
+</resources>

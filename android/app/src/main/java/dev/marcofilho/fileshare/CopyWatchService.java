@@ -20,6 +20,9 @@ public class CopyWatchService extends AccessibilityService {
     private static final long DEBOUNCE_MS = 800;
     private static final long FROM_MAC_GRACE_MS = 2000;
 
+    /** Serviço ligado agora; a tela inicial usa para revogar a permissão (disableSelf). */
+    static volatile CopyWatchService running;
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private long lastTrigger;
 
@@ -29,6 +32,7 @@ public class CopyWatchService extends AccessibilityService {
      */
     @Override
     protected void onServiceConnected() {
+        running = this;
         if (PairingStore.load(this) == null) return;
         try {
             startForegroundService(new Intent(this, BridgeService.class));
@@ -83,5 +87,11 @@ public class CopyWatchService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        running = null;
+        return super.onUnbind(intent);
     }
 }
