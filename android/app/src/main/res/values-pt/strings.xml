@@ -15,9 +15,6 @@
     <string name="section_setup">Configuração</string>
     <string name="section_howto">Como usar</string>
 
-    <string name="copy_title">Cópia automática</string>
-    <string name="copy_on">O que você copiar vai para o Mac</string>
-    <string name="copy_off">Ative o FileShare em Acessibilidade</string>
     <string name="notif_title">Notificações</string>
     <string name="notif_on">Você vê os arquivos que chegam do Mac</string>
     <string name="notif_off">Necessárias para avisar dos arquivos recebidos</string>
@@ -54,4 +51,18 @@
     <string name="pair_ok_text">O tablet se conecta ao Mac sozinho pelo Wi-Fi, com criptografia. Pode fechar esta tela.</string>
     <string name="pair_fail_title">Não consegui parear</string>
     <string name="pair_fail_text">Leia o QR code de novo: no Mac, clique em ⇄ → Parear tablet….</string>
+
+    <string name="a11y_section">Permissão de acessibilidade</string>
+    <string name="a11y_title">Cópia automática</string>
+    <string name="a11y_on">Permitida</string>
+    <string name="a11y_off">Não permitida</string>
+    <string name="action_revoke">Revogar</string>
+    <string name="a11y_what">Quando você toca em Copiar em qualquer app, o FileShare manda o que foi copiado ao seu Mac. Sem essa permissão, use o botão Enviar ao Mac.</string>
+    <string name="a11y_why">• O Android só avisa um app de que você tocou em Copiar por meio de um serviço de acessibilidade.\n• O FileShare recebe só o nome do botão tocado e os avisos do sistema (como \"Copiado\"), apenas para reconhecer uma cópia.\n• Ele não consegue ler o que está na tela nem o que você digita, e nada disso sai do tablet. Só o que você copiou vai ao seu Mac, criptografado, pelo seu Wi-Fi.\n• Todo o resto funciona sem ela: Mac → tablet, arquivos e o botão Enviar ao Mac.</string>
+    <string name="revoke_title">Revogar a permissão de acessibilidade?</string>
+    <string name="revoke_text">As cópias feitas no tablet deixam de ir sozinhas para o Mac. Você pode ativar de novo aqui quando quiser.</string>
+
+    <string name="enable_title">Ativar a cópia automática</string>
+    <string name="enable_steps">Nos Ajustes de Acessibilidade:\n\n1. Abra Aplicativos instalados (ou Apps baixados).\n2. Toque em FileShare: cópia automática.\n3. Ative e confirme.\n\nDepois volte aqui: vai aparecer um ✓.</string>
+    <string name="open_settings">Abrir Ajustes</string>
 </resources>

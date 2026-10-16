@@ -15,9 +15,6 @@
     <string name="section_setup">Setup</string>
     <string name="section_howto">How to use</string>
 
-    <string name="copy_title">Automatic copy</string>
-    <string name="copy_on">Whatever you copy goes to the Mac</string>
-    <string name="copy_off">Turn on FileShare in Accessibility</string>
     <string name="notif_title">Notifications</string>
     <string name="notif_on">You\'ll see files arriving from the Mac</string>
     <string name="notif_off">Needed to show files received from the Mac</string>
@@ -54,4 +51,18 @@
     <string name="pair_ok_text">The tablet connects to the Mac on its own over Wi-Fi, encrypted. You can close this screen.</string>
     <string name="pair_fail_title">Couldn\'t pair</string>
     <string name="pair_fail_text">Scan the QR code again: on the Mac, click ⇄ → Pair tablet….</string>
+
+    <string name="a11y_section">Accessibility permission</string>
+    <string name="a11y_title">Automatic copy</string>
+    <string name="a11y_on">Allowed</string>
+    <string name="a11y_off">Not allowed</string>
+    <string name="action_revoke">Revoke</string>
+    <string name="a11y_what">When you tap Copy in any app, FileShare sends what you copied to your Mac. Without this permission, use the Send to Mac button instead.</string>
+    <string name="a11y_why">• Android only tells an app that you tapped Copy through an accessibility service.\n• FileShare only gets the name of the button you tap and system notices (like \"Copied\"), just to recognize a copy.\n• It can\'t read what\'s on the screen or what you type, and none of this leaves the tablet. Only what you copied goes to your Mac, encrypted, over your Wi-Fi.\n• Everything else works without it: Mac → tablet, files and the Send to Mac button.</string>
+    <string name="revoke_title">Revoke the accessibility permission?</string>
+    <string name="revoke_text">Copies made on the tablet will stop going to the Mac automatically. You can turn it back on here anytime.</string>
+
+    <string name="enable_title">Turn on automatic copy</string>
+    <string name="enable_steps">In Accessibility settings:\n\n1. Open Installed apps (or Downloaded apps).\n2. Tap FileShare: automatic copy.\n3. Turn it on and confirm.\n\nThen come back here: you\'ll see a ✓.</string>
+    <string name="open_settings">Open settings</string>
 </resources>

@@ -39,7 +39,11 @@ public class MainActivity extends Activity {
     private View macIconBg;
     private View pairSteps;
     private View forget;
-    private Row copyRow, notifRow, batteryRow, tileRow;
+    private Row notifRow, batteryRow, tileRow;
+    private TextView a11yState;
+    private TextView a11yButton;
+    private View a11yCheck;
+    private View a11yIconBg;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -56,11 +60,13 @@ public class MainActivity extends Activity {
         fitContent();
 
         ViewGroup setup = findViewById(R.id.setup);
-        copyRow = new Row(setup, R.drawable.ic_copy, R.color.icon_copy, R.string.copy_title);
         notifRow = new Row(setup, R.drawable.ic_bell, R.color.icon_bell, R.string.notif_title);
         batteryRow = new Row(setup, R.drawable.ic_battery, R.color.icon_battery, R.string.battery_title);
         tileRow = new Row(setup, R.drawable.ic_toggle, R.color.icon_tile, R.string.tile_title);
-        copyRow.action(R.string.action_turn_on, v -> openAccessibility());
+        a11yState = findViewById(R.id.a11y_state);
+        a11yButton = findViewById(R.id.a11y_button);
+        a11yCheck = findViewById(R.id.a11y_check);
+        a11yIconBg = findViewById(R.id.a11y_icon_bg);
         notifRow.action(R.string.action_allow, v -> askNotifications());
         batteryRow.action(R.string.action_allow, v -> askBattery());
         tileRow.action(R.string.action_add, v -> addTile());
@@ -90,7 +96,7 @@ public class MainActivity extends Activity {
 
     private void refresh() {
         refreshStatus();
-        copyRow.state(isAccessibilityOn(), R.string.copy_on, R.string.copy_off);
+        refreshAccessibility();
         notifRow.state(checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
                 R.string.notif_on, R.string.notif_off);
         batteryRow.state(getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName()),
@@ -111,6 +117,54 @@ public class MainActivity extends Activity {
         macIconBg.setBackgroundTintList(ColorStateList.valueOf(getColor(pairing != null ? R.color.brand : R.color.off)));
         pairSteps.setVisibility(pairing == null ? View.VISIBLE : View.GONE);
         forget.setVisibility(pairing != null ? View.VISIBLE : View.GONE);
+    }
+
+    /** Cartão da acessibilidade: permitida (✓ e Revogar) ou não (Ativar em destaque). */
+    private void refreshAccessibility() {
+        boolean on = isAccessibilityOn();
+        a11yState.setText(on ? R.string.a11y_on : R.string.a11y_off);
+        a11yState.setTextColor(getColor(on ? R.color.ok : R.color.warn));
+        a11yCheck.setVisibility(on ? View.VISIBLE : View.GONE);
+        a11yIconBg.setBackgroundTintList(ColorStateList.valueOf(getColor(on ? R.color.icon_copy : R.color.off)));
+        a11yButton.setText(on ? R.string.action_revoke : R.string.action_turn_on);
+        a11yButton.setBackgroundResource(on ? R.drawable.bg_pill_soft : R.drawable.bg_pill);
+        a11yButton.setTextColor(on ? getColor(R.color.brand) : 0xFFFFFFFF);
+        a11yButton.setOnClickListener(v -> {
+            if (on) confirmRevoke();
+            else guideAccessibility();
+        });
+    }
+
+    /**
+     * O One UI ignora o atalho direto para a tela do serviço e abre a lista geral: antes de ir para
+     * os Ajustes, mostra o caminho.
+     */
+    private void guideAccessibility() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.enable_title)
+                .setMessage(R.string.enable_steps)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.open_settings, (d, w) -> openAccessibility())
+                .show();
+    }
+
+    private void confirmRevoke() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.revoke_title)
+                .setMessage(R.string.revoke_text)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.action_revoke, (d, w) -> {
+                    CopyWatchService service = CopyWatchService.running;
+                    if (service != null) {
+                        service.disableSelf(); // o próprio serviço se desliga: nada a fazer nos Ajustes
+                        CopyWatchService.running = null;
+                        // o sistema grava a mudança um instante depois
+                        a11yButton.postDelayed(this::refreshAccessibility, 400);
+                    } else {
+                        openAccessibility();
+                    }
+                })
+                .show();
     }
 
     // MARK: ações
