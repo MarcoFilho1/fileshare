@@ -13,6 +13,7 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | **v1.1.0** | App de barra de menu no Mac: Mac → tablet automático |
 | **v2.0.0** | Sem cabo: conexão pelo Wi-Fi, pareamento por QR code e tudo criptografado |
 | **v2.1.0** | Uso diário: abre sozinho com o sistema, entrega a cópia quando o tablet acorda, arquivos nos dois sentidos e o painel **Send to Tablet** |
+| **v2.2.0** | Ícone e interface nova: painel no estilo da Central de Controle no Mac, tela inicial com a configuração e a permissão de acessibilidade explicada no tablet |
 
 Veja o [plano](docs/plano.md).
 
