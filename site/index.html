@@ -5,104 +5,289 @@
 <!-- a página já tem tema claro e escuro: o navegador não deve escurecer as cores sozinho -->
 <meta name="color-scheme" content="light dark">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="description" content="Copie no Mac e cole no tablet Android, e o contrário. Arquivos nos dois sentidos, pelo seu Wi-Fi, criptografado. Grátis e de código aberto.">
-<title>FileShare · Mac e Android, juntos</title>
+<meta name="theme-color" content="#c9defe" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1d3a" media="(prefers-color-scheme: dark)">
+<title>FileShare · seu Mac e seu tablet, juntos</title>
 <link rel="icon" href="favicon.png">
+<link rel="preload" href="fonts/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="style.css">
 <script src="lang.js"></script>
+<script src="app.js" defer></script>
 </head>
 <body>
-<main>
-  <header class="hero">
-    <img src="icon.png" alt="">
-    <h1>FileShare</h1>
-    <p class="lead">
-      <span lang="pt">Copie no Mac, cole no tablet Android. E o contrário.</span>
-      <span lang="en">Copy on your Mac, paste on your Android tablet. And back.</span>
-    </p>
-    <p class="sub">
-      <span lang="pt">Texto, imagens e arquivos entre o Mac e o Android, pelo seu Wi-Fi, criptografado de ponta a ponta. Sem conta, sem nuvem. Grátis e de código aberto.</span>
-      <span lang="en">Text, images and files between your Mac and Android, over your Wi-Fi, end-to-end encrypted. No account, no cloud. Free and open source.</span>
-    </p>
-  </header>
 
-  <div class="downloads">
-    <div class="card">
-      <h2><span lang="pt">Para Mac</span><span lang="en">For Mac</span></h2>
-      <p class="req"><span lang="pt">macOS 14 ou mais novo</span><span lang="en">macOS 14 or later</span></p>
-      <a class="button wide" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.dmg">
-        <span lang="pt">Baixar para Mac</span><span lang="en">Download for Mac</span>
-      </a>
-      <p class="note">
-        <span lang="pt">Abra o arquivo e arraste o FileShare para Aplicativos. <b>Na primeira vez</b>, o macOS avisa que não conseguiu verificar o app (ele ainda não é notarizado pela Apple): clique em OK, abra <b>Ajustes do Sistema → Privacidade e Segurança</b> e, no fim da página, clique em <b>Abrir mesmo assim</b>.</span>
-        <span lang="en">Open the file and drag FileShare to Applications. <b>The first time</b>, macOS says it couldn't verify the app (it isn't notarized by Apple yet): click OK, open <b>System Settings → Privacy &amp; Security</b> and, at the bottom, click <b>Open Anyway</b>.</span>
-      </p>
-    </div>
-    <div class="card">
-      <h2><span lang="pt">Para Android</span><span lang="en">For Android</span></h2>
-      <p class="req"><span lang="pt">Android 13 ou mais novo</span><span lang="en">Android 13 or later</span></p>
-      <a class="button wide" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.apk">
-        <span lang="pt">Baixar para Android</span><span lang="en">Download for Android</span>
-      </a>
-      <p class="note">
-        <span lang="pt">Baixe no próprio tablet e abra o arquivo. Se o Android perguntar, <b>permita instalar apps desta fonte</b>. Se você ler o QR do Mac antes de instalar, a página do QR também mostra este passo.</span>
-        <span lang="en">Download it on the tablet and open the file. If Android asks, <b>allow installing apps from this source</b>. If you scan the Mac's QR code before installing, the QR page shows this step too.</span>
-      </p>
-    </div>
+<!-- ícones usados na página -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrows" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.3h15M15.8 4.6l3.7 3.7-3.7 3.7M19.5 15.7h-15M8.2 12l-3.7 3.7 3.7 3.7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6L12 3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.6"/><path d="M2 19h20"/></symbol>
+  <symbol id="i-tablet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.2"/><path d="M11 16h2"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top"><img src="icon.png" alt="">FileShare</a>
+    <nav class="nav-links">
+      <a href="#recursos"><span lang="pt">Recursos</span><span lang="en">Features</span></a>
+      <a href="#como-funciona"><span lang="pt">Como funciona</span><span lang="en">How it works</span></a>
+      <a href="#seguranca"><span lang="pt">Segurança</span><span lang="en">Security</span></a>
+      <a href="#perguntas"><span lang="pt">Perguntas</span><span lang="en">FAQ</span></a>
+    </nav>
+    <a class="btn btn-ink btn-sm" href="#baixar"><span lang="pt">Baixar grátis</span><span lang="en">Download free</span></a>
   </div>
+</header>
 
-  <section class="block">
-    <h2><span lang="pt">Como começar</span><span lang="en">Getting started</span></h2>
-    <div class="steps">
-      <div class="card step">
-        <div class="n">1</div>
-        <h3><span lang="pt">Instale no Mac</span><span lang="en">Install on the Mac</span></h3>
-        <p><span lang="pt">Ao abrir, o FileShare mostra um QR code para parear o tablet.</span><span lang="en">When it opens, FileShare shows a QR code to pair your tablet.</span></p>
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <a class="pill reveal" href="https://github.com/MarcoFilho1/fileshare/releases/latest">
+        <b>v2.3.0</b>
+        <span lang="pt">Grátis e de código aberto</span><span lang="en">Free and open source</span>
+      </a>
+      <h1 class="display reveal" style="--d:.08s">
+        <span lang="pt">Seu Mac e seu tablet,<br><span class="sans">finalmente juntos.</span></span>
+        <span lang="en">Your Mac and your tablet,<br><span class="sans">finally together.</span></span>
+      </h1>
+      <p class="lede reveal" style="--d:.16s">
+        <span lang="pt">Copie no Mac, cole no Android. Arraste arquivos até a barra de menu. Tudo pelo seu Wi-Fi, criptografado, sem conta e sem nuvem.</span>
+        <span lang="en">Copy on your Mac, paste on Android. Drag files to the menu bar. All over your Wi-Fi, encrypted, with no account and no cloud.</span>
+      </p>
+      <div class="hero-actions reveal" id="baixar" style="--d:.24s">
+        <a class="btn btn-ink" data-os="mac" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.dmg">
+          <svg><use href="#i-laptop"/></svg><span lang="pt">Baixar para Mac</span><span lang="en">Download for Mac</span>
+        </a>
+        <a class="btn btn-ghost" data-os="android" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.apk">
+          <svg><use href="#i-tablet"/></svg><span lang="pt">Baixar para Android</span><span lang="en">Download for Android</span>
+        </a>
       </div>
-      <div class="card step">
-        <div class="n">2</div>
-        <h3><span lang="pt">Leia o QR com o tablet</span><span lang="en">Scan it with the tablet</span></h3>
-        <p><span lang="pt">Aponte a câmera e toque no link. Sem o app no tablet, a página mostra como instalar.</span><span lang="en">Point the camera and tap the link. Without the app on the tablet, the page shows how to install it.</span></p>
+      <p class="hero-note reveal" style="--d:.3s">
+        <span lang="pt">macOS 14+ · Android 13+ · <a href="#perguntas">primeira vez no Mac?</a></span>
+        <span lang="en">macOS 14+ · Android 13+ · <a href="#perguntas">first time on the Mac?</a></span>
+      </p>
+    </div>
+
+    <!-- o produto: Mac e tablet desenhados em HTML, com um arquivo indo de um para o outro -->
+    <div class="stage reveal" style="--d:.36s" aria-hidden="true">
+      <div class="scene" id="scene">
+        <div class="slab"></div>
+        <div class="mac">
+          <div class="screen">
+            <div class="menubar">
+              <div class="dots"><i></i><i></i><i></i><i></i></div>
+              <div class="right"><i></i><span class="tray"><svg><use href="#i-arrows"/></svg></span><i></i><i></i></div>
+            </div>
+            <div class="window">
+              <div class="lights"><i></i><i></i><i></i></div>
+              <div class="files">
+                <div class="file"><span class="doc"></span>Aula 7.pdf</div>
+                <div class="file"><span class="doc" style="--c:#2bb673"></span>notas.csv</div>
+                <div class="file"><span class="doc" style="--c:#7b5cf0"></span>slides.key</div>
+                <div class="file"><span class="doc" style="--c:#f2a93b"></span>foto.png</div>
+                <div class="file"><span class="doc" style="--c:#13a9bd"></span>resumo.txt</div>
+              </div>
+            </div>
+            <div class="flyer"></div>
+            <div class="drop">
+              <div class="head">
+                <span class="c"><svg style="color:#fff"><use href="#i-tablet"/></svg></span>
+                <span><b>Send to Tablet</b><small>Galaxy Tab S9 FE</small></span>
+              </div>
+              <div class="tile">
+                <div class="lit"></div>
+                <div class="stagev s0"><div><span class="ring"><svg style="color:#666"><use href="#i-down"/></svg></span>Drop files here</div></div>
+                <div class="stagev s1"><div><span class="ring"><svg style="color:#2166f5"><use href="#i-down"/></svg></span>Release to send</div></div>
+                <div class="stagev s2"><div>Aula 7.pdf<div class="bar"><i></i></div></div></div>
+                <div class="stagev s3"><div><span class="ok"><svg style="color:#fff"><use href="#i-check"/></svg></span>Sent to Galaxy Tab S9 FE</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tablet">
+          <div class="tscreen">
+            <div class="notif">
+              <span class="c"><svg style="color:#fff"><use href="#i-arrows"/></svg></span>
+              <span><b>PDF recebido do MacBook</b><small>Aula 7.pdf · toque para abrir</small></span>
+            </div>
+            <div class="tapp">
+              <img src="icon.png" alt="">
+              <b>FileShare</b>
+              <div class="card"><span class="c"></span><span><b>MacBook Air</b><small><i></i>Conectado</small></span></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card step">
-        <div class="n">3</div>
-        <h3><span lang="pt">Pronto</span><span lang="en">That's it</span></h3>
-        <p><span lang="pt">No mesmo Wi-Fi, eles se acham sozinhos. O app do tablet mostra o que falta configurar.</span><span lang="en">On the same Wi-Fi they find each other. The tablet app shows anything left to set up.</span></p>
+    </div>
+
+    <div class="wrap">
+      <div class="facts reveal">
+        <div class="fact"><div class="num">0</div><div class="lbl"><span lang="pt">Contas ou cadastro</span><span lang="en">Accounts or sign-ups</span></div></div>
+        <div class="fact"><div class="num">0</div><div class="lbl"><span lang="pt">Servidores no meio</span><span lang="en">Servers in between</span></div></div>
+        <div class="fact"><div class="num">&lt;1 s</div><div class="lbl"><span lang="pt">Da cópia até o outro lado</span><span lang="en">From copy to the other side</span></div></div>
+        <div class="fact"><div class="num">MIT</div><div class="lbl"><span lang="pt">Código aberto, grátis</span><span lang="en">Open source, free</span></div></div>
       </div>
     </div>
   </section>
 
-  <section class="block">
-    <h2><span lang="pt">O que ele faz</span><span lang="en">What it does</span></h2>
-    <div class="features">
-      <div class="card feature">
-        <div class="icon">⧉</div>
-        <h3><span lang="pt">Copiar e colar</span><span lang="en">Copy and paste</span></h3>
-        <p><span lang="pt">Texto e imagens, inclusive prints do Mac, prontos para colar no outro aparelho.</span><span lang="en">Text and images, Mac screenshots included, ready to paste on the other device.</span></p>
+  <section class="sec" id="recursos">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <div class="eyebrow"><span lang="pt">Recursos</span><span lang="en">Features</span></div>
+        <h2 class="display h2"><span lang="pt">Tudo o que faltava entre o <em>Mac</em> e o <em>Android</em>.</span><span lang="en">Everything that was missing between <em>Mac</em> and <em>Android</em>.</span></h2>
       </div>
-      <div class="card feature">
-        <div class="icon">⇄</div>
-        <h3><span lang="pt">Arquivos</span><span lang="en">Files</span></h3>
-        <p><span lang="pt">Arraste até o ícone na barra de menu do Mac, ou use Compartilhar no tablet. Até 100 MB.</span><span lang="en">Drag onto the menu bar icon on the Mac, or use Share on the tablet. Up to 100 MB.</span></p>
-      </div>
-      <div class="card feature">
-        <div class="icon">☾</div>
-        <h3><span lang="pt">Tablet dormindo</span><span lang="en">Tablet asleep</span></h3>
-        <p><span lang="pt">O que você copiar ou enviar espera e chega quando o tablet acordar.</span><span lang="en">Whatever you copy or send waits and arrives when the tablet wakes up.</span></p>
-      </div>
-      <div class="card feature">
-        <div class="icon">🔒</div>
-        <h3><span lang="pt">Privado</span><span lang="en">Private</span></h3>
-        <p><span lang="pt">Só no seu Wi-Fi, criptografado (ChaCha20-Poly1305), sem conta e sem servidor no meio.</span><span lang="en">Only on your Wi-Fi, encrypted (ChaCha20-Poly1305), no account and no server in between.</span></p>
+
+      <div class="bento">
+        <article class="cell c-4 reveal">
+          <h3><span lang="pt">Copie aqui, cole lá</span><span lang="en">Copy here, paste there</span></h3>
+          <p><span lang="pt">Texto e imagens, inclusive prints com ⌘⇧4, vão direto para a área de transferência do outro aparelho. Sem botão, sem app aberto.</span><span lang="en">Text and images, ⌘⇧4 screenshots included, go straight to the other device's clipboard. No button, no app to open.</span></p>
+          <div class="art">
+            <div class="pair-art">
+              <div class="dev"><b>Mac</b><div class="clip">“<span lang="pt">Reunião às 15h, sala 2</span><span lang="en">Meeting at 3pm, room 2</span>”</div></div>
+              <div class="wire"><i></i></div>
+              <div class="dev"><b>Tablet</b><div class="clip img"><i></i><span lang="pt">Imagem colada</span><span lang="en">Image pasted</span></div></div>
+            </div>
+          </div>
+        </article>
+        <article class="cell c-2 accent reveal" style="--d:.08s">
+          <h3><span lang="pt">Arraste até o ⇄</span><span lang="en">Drag to ⇄</span></h3>
+          <p><span lang="pt">Chegou perto do ícone, o painel aparece. Soltou, foi.</span><span lang="en">Get close to the icon and the panel appears. Let go, and it's sent.</span></p>
+          <div class="art">
+            <div class="mini-drop">
+              <div class="head"><i></i>Send to Tablet</div>
+              <div class="t"><div><span class="dot"><svg style="color:#fff"><use href="#i-down"/></svg></span><span lang="pt">Solte para enviar</span><span lang="en">Release to send</span></div></div>
+            </div>
+          </div>
+        </article>
+        <article class="cell c-2 reveal">
+          <h3><span lang="pt">Arquivos nos dois sentidos</span><span lang="en">Files both ways</span></h3>
+          <p><span lang="pt">PDFs, fotos e documentos pelo menu Compartilhar do tablet ou pelo Finder no Mac.</span><span lang="en">PDFs, photos and documents from the tablet's Share menu or the Finder on the Mac.</span></p>
+          <div class="art"><div class="bignum">100 MB</div><div class="eyebrow"><span lang="pt">por arquivo</span><span lang="en">per file</span></div></div>
+        </article>
+        <article class="cell c-2 reveal" style="--d:.08s">
+          <h3><span lang="pt">Tablet dormindo? Espera.</span><span lang="en">Tablet asleep? It waits.</span></h3>
+          <p><span lang="pt">O que você copiar ou enviar fica guardado e chega quando ele acordar.</span><span lang="en">Whatever you copy or send is kept and arrives when it wakes up.</span></p>
+          <div class="art queue">
+            <div class="w"><i>◷</i><span lang="pt">Aula 7.pdf · espera o tablet</span><span lang="en">Aula 7.pdf · waiting for tablet</span></div>
+            <div class="d"><i>✓</i><span lang="pt">Entregue ao acordar</span><span lang="en">Delivered on wake</span></div>
+          </div>
+        </article>
+        <article class="cell c-2 dark reveal" style="--d:.16s">
+          <h3><span lang="pt">Privado de verdade</span><span lang="en">Truly private</span></h3>
+          <p><span lang="pt">Só no seu Wi-Fi, criptografado de ponta a ponta. Ninguém no meio.</span><span lang="en">Only on your Wi-Fi, end-to-end encrypted. Nobody in between.</span></p>
+          <div class="art specs"><span>ChaCha20-Poly1305</span><span>HKDF-SHA256</span><span lang="pt">Wi-Fi local</span><span lang="en">Local Wi-Fi</span><span lang="pt">sem conta</span><span lang="en">no account</span></div>
+        </article>
       </div>
     </div>
+  </section>
+
+  <section class="sec" id="como-funciona">
+    <div class="wrap">
+      <div class="sec-head center reveal">
+        <div class="eyebrow"><span lang="pt">Como funciona</span><span lang="en">How it works</span></div>
+        <h2 class="display h2"><span lang="pt">Pronto em um minuto.</span><span lang="en">Ready in a minute.</span></h2>
+        <p class="lede"><span lang="pt">Você pareia uma vez. Depois disso, eles se acham sozinhos sempre que estiverem no mesmo Wi-Fi.</span><span lang="en">You pair once. After that, they find each other whenever they're on the same Wi-Fi.</span></p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="n">01</div>
+          <h3><span lang="pt">Instale no Mac</span><span lang="en">Install on the Mac</span></h3>
+          <p><span lang="pt">Arraste o FileShare para Aplicativos. Ao abrir, ele mostra um QR code.</span><span lang="en">Drag FileShare to Applications. When it opens, it shows a QR code.</span></p>
+        </div>
+        <div class="step reveal" style="--d:.08s">
+          <div class="n">02</div>
+          <h3><span lang="pt">Leia com o tablet</span><span lang="en">Scan with the tablet</span></h3>
+          <p><span lang="pt">Aponte a câmera e toque no link. Ainda não tem o app? A página mostra como instalar.</span><span lang="en">Point the camera and tap the link. Don't have the app yet? The page shows how to install it.</span></p>
+        </div>
+        <div class="step reveal" style="--d:.16s">
+          <div class="n">03</div>
+          <h3><span lang="pt">Copie e cole</span><span lang="en">Copy and paste</span></h3>
+          <p><span lang="pt">Pronto. O app do tablet mostra o que mais vale configurar, com um toque cada.</span><span lang="en">Done. The tablet app shows what else is worth setting up, one tap each.</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dark-band" id="seguranca">
+    <div class="wrap sec-grid">
+      <div class="reveal">
+        <div class="eyebrow"><span lang="pt">Segurança</span><span lang="en">Security</span></div>
+        <h2 class="display h2"><span lang="pt">O que você copia <em>não sai</em> da sua casa.</span><span lang="en">What you copy <em>never leaves</em> your home.</span></h2>
+        <p class="lede" style="margin-top:20px"><span lang="pt">O FileShare não tem servidor, conta nem nuvem. O Mac e o tablet conversam direto, e só entre si.</span><span lang="en">FileShare has no server, account or cloud. Your Mac and tablet talk directly, and only to each other.</span></p>
+        <a class="text-link" href="https://github.com/MarcoFilho1/fileshare#segurança"><span lang="pt">Ler os detalhes no código</span><span lang="en">Read the details in the code</span><svg width="18" height="18"><use href="#i-arrow"/></svg></a>
+      </div>
+      <ul class="checks">
+        <li class="reveal"><svg><use href="#i-shield"/></svg><div><b><span lang="pt">Pareamento com chave secreta</span><span lang="en">Paired with a secret key</span></b><span><span lang="pt">Guardada no Keychain do Mac e no Keystore do Android. Quem não tem a chave é recusado.</span><span lang="en">Kept in the Mac's Keychain and Android's Keystore. Anyone without the key is refused.</span></span></div></li>
+        <li class="reveal" style="--d:.06s"><svg><use href="#i-shield"/></svg><div><b><span lang="pt">Tudo criptografado</span><span lang="en">Everything encrypted</span></b><span><span lang="pt">Cada conexão gera chaves novas (HKDF-SHA256) e cifra tudo com ChaCha20-Poly1305.</span><span lang="en">Each connection derives fresh keys (HKDF-SHA256) and encrypts everything with ChaCha20-Poly1305.</span></span></div></li>
+        <li class="reveal" style="--d:.12s"><svg><use href="#i-shield"/></svg><div><b><span lang="pt">Discreto na rede</span><span lang="en">Quiet on the network</span></b><span><span lang="pt">Sem pareamento, o Mac nem aparece. Senhas copiadas de gerenciadores são ignoradas.</span><span lang="en">Unpaired, the Mac doesn't even show up. Copies from password managers are ignored.</span></span></div></li>
+        <li class="reveal" style="--d:.18s"><svg><use href="#i-shield"/></svg><div><b><span lang="pt">Código aberto</span><span lang="en">Open source</span></b><span><span lang="pt">Tudo está no GitHub, sob a licença MIT. Qualquer pessoa pode conferir.</span><span lang="en">It's all on GitHub under the MIT license. Anyone can check it.</span></span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec" id="perguntas">
+    <div class="wrap">
+      <div class="sec-head center reveal">
+        <div class="eyebrow"><span lang="pt">Perguntas</span><span lang="en">FAQ</span></div>
+        <h2 class="display h2"><span lang="pt">Perguntas frequentes</span><span lang="en">Questions, answered</span></h2>
+      </div>
+      <div class="faq reveal">
+        <details>
+          <summary><span lang="pt">Por que o macOS diz que não conseguiu verificar o app?</span><span lang="en">Why does macOS say it couldn't verify the app?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Porque o FileShare ainda não é notarizado pela Apple (um programa pago). Na primeira vez, clique em OK, abra <b>Ajustes do Sistema → Privacidade e Segurança</b> e, no fim da página, clique em <b>Abrir mesmo assim</b>. Depois disso ele abre normalmente.</span><span lang="en">Because FileShare isn't notarized by Apple yet (a paid program). The first time, click OK, open <b>System Settings → Privacy &amp; Security</b> and, at the bottom, click <b>Open Anyway</b>. After that it opens normally.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Precisa de internet?</span><span lang="en">Does it need the internet?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Não. O Mac e o tablet conversam direto pelo Wi-Fi da sua casa; só precisam estar na mesma rede.</span><span lang="en">No. The Mac and the tablet talk directly over your home Wi-Fi; they just need to be on the same network.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Funciona com iPhone, iPad ou Windows?</span><span lang="en">Does it work with iPhone, iPad or Windows?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Por enquanto, é Mac (macOS 14 ou mais novo) com Android (13 ou mais novo). Feito e testado com um Galaxy Tab S9 FE.</span><span lang="en">For now it's Mac (macOS 14 or later) with Android (13 or later). Built and tested with a Galaxy Tab S9 FE.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Por que o tablet pede a permissão de acessibilidade?</span><span lang="en">Why does the tablet ask for the accessibility permission?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Só para a cópia automática: o Android só avisa um app de que você tocou em Copiar por meio da acessibilidade. O FileShare recebe apenas o nome do botão tocado; não lê a tela nem o que você digita. É opcional: sem ela, use o botão Enviar ao Mac.</span><span lang="en">Only for automatic copy: Android only tells an app that you tapped Copy through accessibility. FileShare only gets the name of the tapped button; it doesn't read the screen or what you type. It's optional: without it, use the Send to Mac button.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Por que o app do Android não está na Play Store?</span><span lang="en">Why isn't the Android app on the Play Store?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Ainda não. O APK é assinado pelo projeto e o código é público. Ao instalar, o Android pede para permitir apps desta fonte, só na primeira vez.</span><span lang="en">Not yet. The APK is signed by the project and the code is public. When installing, Android asks you to allow apps from this source, only the first time.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">É grátis mesmo?</span><span lang="en">Is it really free?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Sim. Sem anúncios, sem plano pago, sem coleta de dados. Código aberto sob a licença MIT.</span><span lang="en">Yes. No ads, no paid plan, no data collection. Open source under the MIT license.</span></div></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="final reveal">
+    <img src="icon.png" alt="">
+    <h2 class="display h2"><span lang="pt">Comece a copiar<br><em>entre os dois.</em></span><span lang="en">Start copying<br><em>between both.</em></span></h2>
+    <div class="hero-actions">
+      <a class="btn btn-ink" data-os="mac" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.dmg">
+        <svg><use href="#i-laptop"/></svg><span lang="pt">Baixar para Mac</span><span lang="en">Download for Mac</span>
+      </a>
+      <a class="btn btn-ghost" data-os="android" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.apk">
+        <svg><use href="#i-tablet"/></svg><span lang="pt">Baixar para Android</span><span lang="en">Download for Android</span>
+      </a>
+    </div>
+    <p class="hero-note">v2.3.0 · macOS 14+ · Android 13+</p>
   </section>
 </main>
+
 <footer>
-  <a href="https://github.com/MarcoFilho1/fileshare">GitHub</a> ·
-  <span lang="pt">código aberto (MIT)</span><span lang="en">open source (MIT)</span> ·
-  <a href="https://github.com/MarcoFilho1/fileshare#segurança"><span lang="pt">segurança</span><span lang="en">security</span></a>
+  <div class="wrap foot">
+    <a class="brand" href="#top"><img src="icon.png" alt="">FileShare</a>
+    <nav>
+      <a href="https://github.com/MarcoFilho1/fileshare">GitHub</a>
+      <a href="https://github.com/MarcoFilho1/fileshare/releases"><span lang="pt">Versões</span><span lang="en">Releases</span></a>
+      <a href="https://github.com/MarcoFilho1/fileshare#segurança"><span lang="pt">Segurança</span><span lang="en">Security</span></a>
+      <a href="https://github.com/MarcoFilho1/fileshare/blob/main/LICENSE"><span lang="pt">Licença MIT</span><span lang="en">MIT License</span></a>
+    </nav>
+  </div>
 </footer>
 </body>
 </html>
