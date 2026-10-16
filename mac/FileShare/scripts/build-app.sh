@@ -16,11 +16,23 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>FileShare</string>
     <key>CFBundleExecutable</key><string>FileShare</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>2.0.0</string>
+    <key>CFBundleShortVersionString</key><string>2.1.0</string>
+    <key>CFBundleVersion</key><string>2.1.0</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSLocalNetworkUsageDescription</key><string>O FileShare conversa com o seu tablet pela rede Wi-Fi local.</string>
     <key>NSBonjourServices</key><array><string>_fileshare._tcp</string></array>
+    <!-- Finder: botão direito → Ações Rápidas/Serviços → Enviar ao tablet -->
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Enviar ao tablet</string></dict>
+            <key>NSMessage</key><string>sendToTablet</string>
+            <key>NSPortName</key><string>FileShare</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+    </array>
 </dict>
 </plist>
 PLIST

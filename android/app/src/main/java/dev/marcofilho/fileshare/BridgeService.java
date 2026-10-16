@@ -3,6 +3,7 @@ package dev.marcofilho.fileshare;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
@@ -33,6 +34,7 @@ import java.util.Arrays;
 public class BridgeService extends Service {
     static final String TAG = "FileShare";
     static final String CLIP_LABEL = "FileShare";
+    private static final String FILES_CHANNEL = "received-files";
     private static final int NOTIFICATION_ID = 1;
     private static final int MAX_CACHED_IMAGES = 10;
 
@@ -78,6 +80,11 @@ public class BridgeService extends Service {
                 public void onState(String state) {
                     nm.notify(NOTIFICATION_ID, notification(state));
                 }
+
+                @Override
+                public void onFile(Uri uri, String name, String mime, String macName) {
+                    notifyFile(uri, name, mime, macName);
+                }
             });
             link.start();
             networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -102,6 +109,25 @@ public class BridgeService extends Service {
                 .setSmallIcon(android.R.drawable.stat_sys_upload_done)
                 .setOngoing(true)
                 .build();
+    }
+
+    /** Aviso de arquivo recebido; tocar abre o arquivo no app escolhido (Samsung Notes para PDF, por exemplo). */
+    private void notifyFile(Uri uri, String name, String mime, String macName) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.createNotificationChannel(new NotificationChannel(FILES_CHANNEL, "Arquivos recebidos do Mac", NotificationManager.IMPORTANCE_DEFAULT));
+        Intent open = new Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, mime)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent tap = PendingIntent.getActivity(this, uri.hashCode(), Intent.createChooser(open, "Abrir " + name),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        String kind = mime.equals("application/pdf") ? "PDF" : mime.startsWith("image/") ? "Imagem" : mime.startsWith("video/") ? "Vídeo" : "Arquivo";
+        nm.notify(uri.hashCode(), new Notification.Builder(this, FILES_CHANNEL)
+                .setContentTitle(kind + " recebido do " + macName)
+                .setContentText(name + " — toque para abrir (Downloads › FileShare)")
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentIntent(tap)
+                .setAutoCancel(true)
+                .build());
     }
 
     private void received(String mime, byte[] data) {

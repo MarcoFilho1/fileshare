@@ -1,6 +1,7 @@
 import FileShareCore
 import Foundation
 import Network
+import UniformTypeIdentifiers
 
 /// Servidor no Wi-Fi: anuncia o Mac por Bonjour (_fileshare._tcp) só quando há um tablet pareado,
 /// autentica a conexão com a chave do pareamento e cifra tudo que passa por ela.
@@ -22,13 +23,24 @@ final class TabletServer {
         case held
     }
 
+    /// Andamento de um arquivo enviado ao tablet.
+    enum FileEvent {
+        /// Tablet fora: o arquivo espera na fila e vai quando ele reconectar.
+        case queued(name: String)
+        case progress(name: String, fraction: Double)
+        case delivered(name: String)
+        case failed(name: String, reason: String)
+    }
+
     enum SendError: LocalizedError {
         case notConnected, timeout
+        case refused(String)
 
         var errorDescription: String? {
             switch self {
             case .notConnected: "tablet não conectado"
             case .timeout: "o tablet não confirmou a tempo"
+            case .refused(let reason): reason
             }
         }
     }
@@ -63,6 +75,8 @@ final class TabletServer {
     private static let staleAfter: TimeInterval = 30
     private static let ackTimeout: TimeInterval = 8
     private static let handshakeTimeout: TimeInterval = 10
+    /// Depois do último pedaço, o tablet ainda grava o arquivo antes de confirmar.
+    private static let fileAckTimeout: TimeInterval = 30
 
     private let queue = DispatchQueue(label: "fileshare.server")
     private let macId: String
@@ -71,6 +85,10 @@ final class TabletServer {
     private let onState: (State) -> Void
     private let onHeldDelivered: (ClipPayload) -> Void
     private let onFile: (_ url: URL, _ mime: String, _ from: String) -> Void
+    private let onFileEvent: (FileEvent) -> Void
+    /// Arquivos a enviar ao tablet, um de cada vez; ficam aqui enquanto ele dorme.
+    private var outbox: [URL] = []
+    private var sendingFile = false
     /// Tudo que vem do menu Compartilhar do tablet fica junto, em Downloads/FileShare.
     static let receivedFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("FileShare", isDirectory: true)
@@ -89,12 +107,14 @@ final class TabletServer {
          onReceive: @escaping (ClipPayload) -> Void,
          onState: @escaping (State) -> Void,
          onHeldDelivered: @escaping (ClipPayload) -> Void,
-         onFile: @escaping (_ url: URL, _ mime: String, _ from: String) -> Void) {
+         onFile: @escaping (_ url: URL, _ mime: String, _ from: String) -> Void,
+         onFileEvent: @escaping (FileEvent) -> Void) {
         self.macId = macId
         self.onReceive = onReceive
         self.onState = onState
         self.onHeldDelivered = onHeldDelivered
         self.onFile = onFile
+        self.onFileEvent = onFileEvent
         startWatchdog()
     }
 
@@ -197,6 +217,95 @@ final class TabletServer {
         }
     }
 
+    // MARK: Arquivos Mac → tablet
+
+    /// Põe arquivos na fila de envio (arrastados ao ícone, escolhidos no menu ou vindos do Finder).
+    func sendFiles(_ urls: [URL]) {
+        queue.async { [self] in
+            for url in urls {
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else {
+                    fileEvent(.failed(name: url.lastPathComponent, reason: "pastas não são enviadas"))
+                    continue
+                }
+                outbox.append(url)
+            }
+            pumpOutbox()
+        }
+    }
+
+    /// Envia o próximo arquivo da fila, se houver tablet conectado e nada sendo enviado.
+    private func pumpOutbox() {
+        guard !sendingFile, let url = outbox.first else { return }
+        guard let session = active, Date().timeIntervalSince(session.lastSeen) <= Self.staleAfter else {
+            if let stale = active { close(stale) }
+            outbox.forEach { fileEvent(.queued(name: $0.lastPathComponent)) }
+            return
+        }
+        let name = url.lastPathComponent
+        let size = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?.int64Value ?? -1
+        guard size >= 0, size <= Wire.maxFileSize, let handle = try? FileHandle(forReadingFrom: url) else {
+            outbox.removeFirst()
+            fileEvent(.failed(name: name, reason: size > Wire.maxFileSize ? "arquivo maior que 100 MB" : "não consegui ler o arquivo"))
+            return pumpOutbox()
+        }
+        sendingFile = true
+        let id = nextId
+        nextId += 1
+        pending[id] = { [weak self] result in
+            guard let self else { return }
+            try? handle.close()
+            sendingFile = false
+            switch result {
+            case .success:
+                outbox.removeFirst()
+                fileEvent(.delivered(name: name))
+            case .failure(SendError.refused(let reason)):
+                outbox.removeFirst()
+                fileEvent(.failed(name: name, reason: reason))
+            case .failure:
+                // conexão caiu no meio: o arquivo continua na fila para quando o tablet voltar
+                fileEvent(.queued(name: name))
+                return
+            }
+            pumpOutbox()
+        }
+        let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        write(.file(id: id, size: size, mime: mime, name: name), to: session)
+        sendPart(id, handle: handle, sent: 0, size: size, name: name, session: session)
+    }
+
+    /// Manda um pedaço e só lê o próximo quando a rede aceitou este, para não pôr o arquivo inteiro na memória.
+    private func sendPart(_ id: Int, handle: FileHandle, sent: Int64, size: Int64, name: String, session: Session) {
+        guard session === active, pending[id] != nil else { return }
+        guard sent < size else {
+            queue.asyncAfter(deadline: .now() + Self.fileAckTimeout) { [weak self] in
+                self?.pending.removeValue(forKey: id)?(.failure(SendError.timeout))
+            }
+            return
+        }
+        let chunk: Data
+        do {
+            chunk = try handle.read(upToCount: Wire.partSize) ?? Data()
+        } catch {
+            pending.removeValue(forKey: id)?(.failure(SendError.refused("não consegui ler o arquivo")))
+            return
+        }
+        guard !chunk.isEmpty else {
+            pending.removeValue(forKey: id)?(.failure(SendError.refused("o arquivo mudou durante o envio")))
+            return
+        }
+        let total = sent + Int64(chunk.count)
+        write(.part(id: id, data: chunk), to: session) { [weak self] in
+            self?.fileEvent(.progress(name: name, fraction: Double(total) / Double(max(size, 1))))
+            self?.sendPart(id, handle: handle, sent: total, size: size, name: name, session: session)
+        }
+    }
+
+    private func fileEvent(_ event: FileEvent) {
+        DispatchQueue.main.async { self.onFileEvent(event) }
+    }
+
     // MARK: Conexão
 
     private func accept(_ conn: NWConnection) {
@@ -256,6 +365,7 @@ final class TabletServer {
             candidate = nil
             report(.connected(name: session.tabletName))
             deliverHeld(to: session)
+            pumpOutbox()
         case .ready:
             session.lastSeen = Date()
             switch try open(frame, in: session) {
@@ -282,11 +392,13 @@ final class TabletServer {
                 }
             case .ack(let id):
                 pending.removeValue(forKey: id)?(.success(()))
+            case .fail(let id, let reason):
+                pending.removeValue(forKey: id)?(.failure(SendError.refused(reason)))
             case .ping:
                 write(.pong, to: session)
             case .pong:
                 break
-            case .auth, .hello, .held, .fail:
+            case .auth, .hello, .held:
                 throw Wire.DecodeError.badMessage("mensagem fora de lugar")
             }
         }
@@ -324,7 +436,7 @@ final class TabletServer {
     }
 
     /// Cifra quando o canal já existe; só o AUTH vai em claro.
-    private func write(_ message: WireMessage, to session: Session) {
+    private func write(_ message: WireMessage, to session: Session, sent: (() -> Void)? = nil) {
         let bytes = Wire.messageBytes(message)
         let frame: Data
         if var ch = session.channel {
@@ -333,7 +445,7 @@ final class TabletServer {
         } else {
             frame = Wire.frame(bytes)
         }
-        session.conn.send(content: frame, completion: .contentProcessed { _ in })
+        session.conn.send(content: frame, completion: .contentProcessed { _ in sent?() })
     }
 
     private func close(_ session: Session) {

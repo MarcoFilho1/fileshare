@@ -104,6 +104,14 @@ public class WireTest {
     }
 
     @Test
+    public void downloadNamesFromMacAreSafe() {
+        assertEquals("-..-.ssh-authorized_keys", IncomingDownload.safeName("../../.ssh/authorized_keys"));
+        assertEquals("zshrc", IncomingDownload.safeName(".zshrc"));
+        assertEquals("Aula3.pdf", IncomingDownload.safeName("Aula\n3.pdf"));
+        assertEquals("arquivo", IncomingDownload.safeName("  "));
+    }
+
+    @Test
     public void rejectsOversizedFrame() {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(new byte[]{0x7f, (byte) 0xff, (byte) 0xff, (byte) 0xff}));
         assertThrows(IOException.class, () -> Wire.read(in));

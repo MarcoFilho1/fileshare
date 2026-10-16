@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pairItem = NSMenuItem(title: "Parear tablet…", action: #selector(pair), keyEquivalent: "")
     private let forgetItem = NSMenuItem(title: "Esquecer tablet", action: #selector(forget), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Abrir ao iniciar o Mac", action: #selector(toggleLoginItem), keyEquivalent: "")
+    private let sendFileItem = NSMenuItem(title: "Enviar arquivo ao tablet…", action: #selector(chooseFilesToSend), keyEquivalent: "")
     private let folderItem = NSMenuItem(title: "Abrir pasta de recebidos", action: #selector(openReceivedFolder), keyEquivalent: "")
     /// Só aparece quando os avisos estão desligados nos Ajustes (o macOS não pergunta duas vezes).
     private let notificationsItem = NSMenuItem(title: "Ativar notificações de arquivos…", action: #selector(openNotificationSettings), keyEquivalent: "")
@@ -32,7 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onReceive: { [weak self] payload in self?.received(payload) },
             onState: { [weak self] state in self?.update(state) },
             onHeldDelivered: { [weak self] payload in self?.show(last: "Entregue ao tablet quando ele acordou: \(payload.summary)") },
-            onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) })
+            onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) },
+            onFileEvent: { [weak self] event in self?.fileEvent(event) })
         setUpNotifications()
         let key = PairingStore.loadKey()
         forgetItem.isEnabled = key != nil
@@ -40,6 +42,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         enableLoginItemOnFirstInstall()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
         watcher.start()
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
+        setUpDrop()
     }
 
     private func setUpMenu() {
@@ -52,12 +57,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         forgetItem.target = self
         loginItem.target = self
         folderItem.target = self
+        sendFileItem.target = self
         notificationsItem.target = self
         notificationsItem.isHidden = true
         menu.autoenablesItems = false
         menu.addItem(statusLine)
         menu.addItem(lastLine)
         menu.addItem(.separator())
+        menu.addItem(sendFileItem)
         menu.addItem(folderItem)
         menu.addItem(notificationsItem)
         menu.addItem(pauseItem)
@@ -88,6 +95,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             show(last: "Recebido do tablet: \(payload.summary)")
         } else {
             show(last: "Não consegui abrir a imagem recebida")
+        }
+    }
+
+    // MARK: Arquivos Mac → tablet
+
+    @objc private func chooseFilesToSend() {
+        let panel = NSOpenPanel()
+        panel.title = "Enviar ao tablet"
+        panel.prompt = "Enviar"
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        NSApp.activate()
+        guard panel.runModal() == .OK else { return }
+        server.sendFiles(panel.urls)
+    }
+
+    /// Finder: botão direito → Enviar ao tablet (NSServices no Info.plist).
+    @objc func sendToTablet(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let urls = pboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        guard !urls.isEmpty else { return }
+        server.sendFiles(urls)
+    }
+
+    /// Arrastar arquivos até o ícone ⇄ na barra de menu.
+    private func setUpDrop() {
+        guard let window = statusItem.button?.window else { return }
+        window.registerForDraggedTypes([.fileURL])
+        window.delegate = self
+    }
+
+    fileprivate func droppedFiles(_ info: NSDraggingInfo) -> [URL] {
+        info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
+    fileprivate func dropHighlight(_ on: Bool) {
+        statusItem.button?.highlight(on)
+    }
+
+    fileprivate func sendDropped(_ urls: [URL]) {
+        server.sendFiles(urls)
+    }
+
+    private func fileEvent(_ event: TabletServer.FileEvent) {
+        switch event {
+        case .queued(let name): show(last: "\(name) vai quando o tablet acordar")
+        case .progress(let name, let fraction):
+            lastLine.title = "Enviando \(name) ao tablet… \(Int(fraction * 100))%"
+        case .delivered(let name): show(last: "Enviado ao tablet: \(name)")
+        case .failed(let name, let reason): show(last: "Não enviei \(name): \(reason)")
         }
     }
 
@@ -236,5 +292,26 @@ extension AppDelegate: NSMenuDelegate {
             let allowed = settings.authorizationStatus == .authorized
             DispatchQueue.main.async { self.notificationsItem.isHidden = allowed }
         }
+    }
+}
+
+/// O ícone ⇄ fica numa janela própria da barra de menu: ela recebe os arquivos arrastados.
+extension AppDelegate: NSWindowDelegate, NSDraggingDestination {
+    func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard !droppedFiles(sender).isEmpty else { return [] }
+        dropHighlight(true)
+        return .copy
+    }
+
+    func draggingExited(_ sender: NSDraggingInfo?) {
+        dropHighlight(false)
+    }
+
+    func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        dropHighlight(false)
+        let urls = droppedFiles(sender)
+        guard !urls.isEmpty else { return false }
+        sendDropped(urls)
+        return true
     }
 }
