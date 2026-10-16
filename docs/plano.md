@@ -19,7 +19,7 @@ Descobertas:
 
 ## Versões
 
-- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia · **v2.1.0** uso diário (etapa D) · **v2.2.0** ícone e interface nova.
+- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia · **v2.1.0** uso diário (etapa D) · **v2.2.0** ícone e interface nova · **v2.3.0** distribuição (site, DMG, APK assinado).
 
 ## Etapa D: uso diário (v2.1.0)
 

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- a página já tem tema claro e escuro: o navegador não deve escurecer as cores sozinho -->
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Esta página recebe a chave do pareamento (depois do "#", que nunca vai ao servidor).
+     Nada de fora é carregado: só arquivos deste site, e nenhum envio de dados. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Parear o tablet · FileShare</title>
+<link rel="icon" href="../favicon.png">
+<link rel="stylesheet" href="../style.css">
+<script src="../lang.js"></script>
+</head>
+<body>
+<main class="pair">
+  <img class="icon" src="../icon.png" alt="">
+
+  <!-- link válido -->
+  <div id="ready" class="hidden">
+    <h1>
+      <span lang="pt">Conectar ao <span class="mac-name"></span></span>
+      <span lang="en">Connect to <span class="mac-name"></span></span>
+    </h1>
+    <p class="lead">
+      <span lang="pt">Toque em Conectar para parear este tablet com o seu Mac pelo FileShare.</span>
+      <span lang="en">Tap Connect to pair this tablet with your Mac in FileShare.</span>
+    </p>
+    <a id="connect" class="button wide" href="#">
+      <span lang="pt">Conectar</span><span lang="en">Connect</span>
+    </a>
+    <p class="gap-top">
+      <a id="show-install" href="#">
+        <span lang="pt">Ainda não tem o FileShare no tablet?</span>
+        <span lang="en">Don't have FileShare on the tablet yet?</span>
+      </a>
+    </p>
+
+    <div id="install" class="card hidden">
+      <ol>
+        <li>
+          <span lang="pt">Baixe o FileShare para Android:</span>
+          <span lang="en">Download FileShare for Android:</span>
+          <div class="gap-button">
+            <a class="button soft" href="https://github.com/MarcoFilho1/fileshare/releases/latest/download/FileShare.apk">
+              <span lang="pt">Baixar FileShare.apk</span><span lang="en">Download FileShare.apk</span>
+            </a>
+          </div>
+        </li>
+        <li>
+          <span lang="pt">Abra o arquivo baixado. Se o Android perguntar, permita instalar apps desta fonte.</span>
+          <span lang="en">Open the downloaded file. If Android asks, allow installing apps from this source.</span>
+        </li>
+        <li>
+          <span lang="pt"><b>Volte para esta página</b> e toque em Conectar. Não precisa ler o QR de novo.</span>
+          <span lang="en"><b>Come back to this page</b> and tap Connect. No need to scan the QR again.</span>
+        </li>
+      </ol>
+    </div>
+
+    <p id="direct" class="note hidden">
+      <span lang="pt">Não abriu? <a id="direct-link" href="#">Tente o link direto</a>.</span>
+      <span lang="en">Didn't open? <a id="direct-link-en" href="#">Try the direct link</a>.</span>
+    </p>
+  </div>
+
+  <!-- link incompleto, ou a página foi recarregada (a chave sai do endereço assim que é lida) -->
+  <div id="invalid" class="hidden">
+    <h1>
+      <span lang="pt">Escaneie o QR code de novo</span>
+      <span lang="en">Scan the QR code again</span>
+    </h1>
+    <p class="lead">
+      <span lang="pt">Este link de pareamento está incompleto ou já foi usado. No Mac, clique no ícone ⇄ → Parear tablet… e leia o código com a câmera do tablet.</span>
+      <span lang="en">This pairing link is incomplete or was already used. On the Mac, click the ⇄ icon → Pair Tablet… and scan the code with the tablet's camera.</span>
+    </p>
+    <a class="button soft" href="../">
+      <span lang="pt">Conhecer o FileShare</span><span lang="en">About FileShare</span>
+    </a>
+  </div>
+
+  <div class="lock">
+    <span aria-hidden="true">🔒</span>
+    <span>
+      <span lang="pt">A chave do pareamento fica só neste aparelho: ela não é enviada a nenhum site, e esta página não carrega nada de fora.</span>
+      <span lang="en">The pairing key stays on this device: it isn't sent to any website, and this page loads nothing from elsewhere.</span>
+    </span>
+  </div>
+</main>
+<script src="pair.js"></script>
+</body>
+</html>
