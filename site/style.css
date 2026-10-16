@@ -1,18 +1,11 @@
 /* FileShare: site. Inspirado em landing pages editoriais (título com serifa, muito espaço, o
    produto em destaque). Nada vem de fora: a fonte serifada é servida pelo próprio site. */
 
-@font-face {
-  font-family: "Instrument Serif";
-  src: url("fonts/InstrumentSerif-Regular.ttf") format("truetype");
-  font-weight: 400;
+@font-face { /* Inter Tight (OFL), só caracteres latinos, pesos 500 a 700 */
+  font-family: "Inter Tight";
+  src: url("fonts/InterTight.woff2") format("woff2");
+  font-weight: 500 700;
   font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Instrument Serif";
-  src: url("fonts/InstrumentSerif-Italic.ttf") format("truetype");
-  font-weight: 400;
-  font-style: italic;
   font-display: swap;
 }
 
@@ -33,7 +26,7 @@
   --sky-3: #fbf8f0;
   --shadow-lg: 0 30px 80px -20px rgba(16, 24, 48, 0.28), 0 12px 30px -12px rgba(16, 24, 48, 0.18);
   --shadow-sm: 0 1px 2px rgba(16, 24, 48, 0.05), 0 6px 20px -8px rgba(16, 24, 48, 0.12);
-  --serif: "Instrument Serif", ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  --display: "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -84,13 +77,20 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
   color: var(--muted);
 }
 .display {
-  font-family: var(--serif);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 0.98;
+  font-family: var(--display);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
 }
-.display em { font-style: italic; }
-.h2 { font-size: clamp(40px, 6vw, 72px); margin: 14px 0 0; }
+/* destaque dos títulos: a cor do FileShare (no lugar do itálico) */
+.display em, .hero h1 .sans {
+  font-style: normal;
+  background: linear-gradient(100deg, #2f7bf6, #4a40db);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+@media (prefers-color-scheme: dark) { .display em, .hero h1 .sans { background-image: linear-gradient(100deg, #6aa0ff, #9a8cff); } }
+.dark-band .display em { background-image: linear-gradient(100deg, #6aa0ff, #9a8cff); }
+.h2 { font-size: clamp(36px, 5vw, 60px); margin: 14px 0 0; }
 .lede { font-size: clamp(18px, 2vw, 21px); color: var(--muted); max-width: 620px; margin: 0; }
 
 /* ---------- botões ---------- */
@@ -146,8 +146,8 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
   pointer-events: none;
 }
 @media (prefers-color-scheme: dark) { .hero::before { background: radial-gradient(closest-side, rgba(91, 143, 255, 0.18), transparent); } }
-.hero h1 { font-size: clamp(50px, 8.6vw, 116px); margin: 22px auto 0; max-width: 1000px; position: relative; }
-.hero h1 .sans { font-family: var(--sans); font-weight: 650; letter-spacing: -0.045em; font-size: 0.84em; }
+.hero h1 { font-size: clamp(46px, 7.6vw, 100px); margin: 22px auto 0; max-width: 1000px; position: relative; }
+.hero h1 { letter-spacing: -0.04em; }
 .hero .lede { margin: 26px auto 0; position: relative; }
 .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 36px; position: relative; }
 .hero-note { margin-top: 18px; font: 13px/1.5 var(--mono); color: var(--muted); position: relative; }
@@ -295,7 +295,7 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
 .facts { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 96px; }
 .fact { padding: 28px 24px; border-left: 1px solid var(--line); }
 .fact:first-child { border-left: 0; }
-.fact .num { font-family: var(--serif); font-size: 48px; line-height: 1; letter-spacing: -0.02em; }
+.fact .num { font-family: var(--display); font-weight: 650; font-size: 44px; line-height: 1; letter-spacing: -0.04em; }
 .fact .lbl { margin-top: 8px; font: 12px/1.4 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 @media (max-width: 760px) { .facts { grid-template-columns: repeat(2, 1fr); } .fact:nth-child(3) { border-left: 0; } .fact:nth-child(n+3) { border-top: 1px solid var(--line); } }
 
@@ -310,7 +310,7 @@ section.sec { padding: 140px 0 0; }
 /* ---------- no dia a dia: histórias com animação ---------- */
 .story { display: grid; grid-template-columns: 1fr 1.15fr; gap: 72px; align-items: center; margin-top: 110px; }
 .story.flip .story-text { order: 2; }
-.story h3 { font-size: clamp(38px, 4.6vw, 58px); margin: 14px 0 18px; }
+.story h3 { font-size: clamp(32px, 3.8vw, 46px); margin: 14px 0 18px; }
 .story p { color: var(--muted); font-size: 18px; margin: 0; max-width: 480px; }
 .ticks { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; }
 .ticks li { display: flex; gap: 10px; align-items: center; font-size: 15px; }
@@ -618,7 +618,7 @@ section.sec { padding: 140px 0 0; }
 .cell.accent p { color: rgba(255, 255, 255, 0.85); }
 .cell.dark { background: #0f1012; color: #f3f3f0; border-color: transparent; }
 .cell.dark p { color: #a2a5ad; }
-.bignum { font-family: var(--serif); font-size: clamp(72px, 8vw, 112px); line-height: 0.9; letter-spacing: -0.03em; }
+.bignum { font-family: var(--display); font-weight: 700; font-size: clamp(60px, 7vw, 92px); line-height: 0.95; letter-spacing: -0.05em; }
 
 /* copiar e colar: dois cartões e um ponto indo e voltando */
 .pair-art { display: grid; grid-template-columns: 1fr 64px 1fr; align-items: center; }
@@ -655,7 +655,7 @@ section.sec { padding: 140px 0 0; }
 /* como funciona */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 56px; }
 .step { padding: 32px; border-radius: 28px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
-.step .n { font-family: var(--serif); font-size: 64px; line-height: 1; color: var(--accent); letter-spacing: -0.02em; }
+.step .n { font-family: var(--display); font-weight: 650; font-size: 48px; line-height: 1; color: var(--accent); letter-spacing: -0.04em; }
 .step h3 { font: 650 21px/1.25 var(--sans); margin: 22px 0 8px; }
 .step p { margin: 0; color: var(--muted); font-size: 16px; }
 @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
@@ -694,7 +694,7 @@ section.sec { padding: 140px 0 0; }
 .final { margin: 140px 24px 0; border-radius: 40px; padding: 120px 24px; text-align: center; position: relative; overflow: hidden;
   background: linear-gradient(180deg, var(--sky-1), var(--sky-2) 55%, var(--sky-3)); }
 .final img { width: 96px; height: 96px; margin: 0 auto 24px; }
-.final .h2 { font-size: clamp(44px, 7vw, 88px); }
+.final .h2 { font-size: clamp(40px, 6vw, 76px); }
 @media (max-width: 600px) { .final { margin: 96px 12px 0; padding: 80px 16px; border-radius: 28px; } }
 
 footer { padding: 56px 0 64px; color: var(--muted); font-size: 14px; }
@@ -733,7 +733,7 @@ footer { padding: 56px 0 64px; color: var(--muted); font-size: 14px; }
 .pair-page { min-height: 100vh; background: linear-gradient(180deg, var(--sky-1), var(--sky-2) 45%, var(--bg)); }
 .pair { max-width: 520px; margin: 0 auto; padding: 72px 20px 48px; text-align: center; }
 .pair img.icon { width: 96px; height: 96px; margin: 0 auto; filter: drop-shadow(0 12px 24px rgba(33, 102, 245, 0.3)); }
-.pair h1 { font-family: var(--serif); font-weight: 400; font-size: 46px; line-height: 1.02; letter-spacing: -0.02em; margin: 22px 0 12px; }
+.pair h1 { font-family: var(--display); font-weight: 650; font-size: 38px; line-height: 1.1; letter-spacing: -0.035em; margin: 22px 0 12px; }
 .pair p.lead { color: var(--muted); margin: 0 0 30px; }
 .pair .card { text-align: left; margin-top: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 24px; box-shadow: var(--shadow-sm); }
 .pair ol { margin: 0; padding-left: 22px; }

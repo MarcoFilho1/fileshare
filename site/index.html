@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#0f1d3a" media="(prefers-color-scheme: dark)">
 <title>FileShare · seu Mac e seu tablet, juntos</title>
 <link rel="icon" href="favicon.png">
-<link rel="preload" href="fonts/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="fonts/InterTight.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 <script src="lang.js"></script>
 <script src="app.js" defer></script>
@@ -381,20 +381,52 @@
       </div>
       <div class="faq reveal">
         <details>
+          <summary><span lang="pt">Precisa de internet?</span><span lang="en">Does it need the internet?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Não precisa de internet, mas precisa de Wi-Fi: o Mac e o tablet têm que estar na <b>mesma rede</b>, como a da sua casa. O que você copia vai direto de um aparelho para o outro pelo roteador e nunca passa pela internet. Por isso funciona até se a internet cair, desde que o roteador continue ligado.</span><span lang="en">It doesn't need the internet, but it does need Wi-Fi: the Mac and the tablet have to be on the <b>same network</b>, like your home's. What you copy goes straight from one device to the other through the router and never travels over the internet. So it works even if the internet goes down, as long as the router stays on.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Funciona fora de casa?</span><span lang="en">Does it work away from home?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Funciona em qualquer rede em que os dois estejam juntos, como a do trabalho. Algumas redes públicas (hotel, faculdade, aeroporto) bloqueiam a conversa entre aparelhos; nelas, eles não se encontram. Quando voltam para a mesma rede, reconectam sozinhos.</span><span lang="en">It works on any network they're both on, like your office's. Some public networks (hotels, campuses, airports) block devices from talking to each other; there, they won't find each other. Back on the same network, they reconnect on their own.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">O que dá para copiar e enviar?</span><span lang="en">What can I copy and send?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Pela área de transferência: <b>texto e imagens</b>, inclusive prints do Mac (⌘⇧4). Como arquivo: PDFs, fotos, documentos e o que mais quiser, <b>até 100 MB cada</b>. Cópias feitas em gerenciadores de senha são ignoradas de propósito.</span><span lang="en">Through the clipboard: <b>text and images</b>, Mac screenshots (⌘⇧4) included. As files: PDFs, photos, documents and anything else, <b>up to 100 MB each</b>. Copies from password managers are ignored on purpose.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">E se o tablet estiver dormindo?</span><span lang="en">What if the tablet is asleep?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">O Mac guarda a última cópia por até 10 minutos e os arquivos ficam na fila. Assim que você liga a tela do tablet, ele reconecta e recebe tudo, desde que o FileShare continue aberto no Mac.</span><span lang="en">The Mac keeps your last copy for up to 10 minutes and files wait in a queue. As soon as you turn the tablet's screen on, it reconnects and gets everything, as long as FileShare is still running on the Mac.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Onde ficam os arquivos recebidos?</span><span lang="en">Where do received files go?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">No Mac, em <b>Downloads › FileShare</b>, com um aviso que abre o arquivo. No tablet, em <b>Download › FileShare</b>, com uma notificação que abre o arquivo no app que você escolher (o Samsung Notes, para um PDF, por exemplo).</span><span lang="en">On the Mac, in <b>Downloads › FileShare</b>, with a notice that opens the file. On the tablet, in <b>Download › FileShare</b>, with a notification that opens it in the app you pick (Samsung Notes for a PDF, for example).</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Alguém na mesma rede pode ver o que eu copio?</span><span lang="en">Can someone on the same network see what I copy?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Não. Tudo é criptografado com uma chave que só o seu Mac e o seu tablet têm, criada no pareamento pelo QR code. Um aparelho sem essa chave é recusado, e sem pareamento o Mac nem aparece na rede.</span><span lang="en">No. Everything is encrypted with a key only your Mac and your tablet have, created when you pair with the QR code. A device without that key is refused, and unpaired, the Mac doesn't even show up on the network.</span></div></div>
+        </details>
+        <details>
           <summary><span lang="pt">Por que o macOS diz que não conseguiu verificar o app?</span><span lang="en">Why does macOS say it couldn't verify the app?</span><span class="plus"></span></summary>
           <div class="answer"><div><span lang="pt">Porque o FileShare ainda não é notarizado pela Apple (um programa pago). Na primeira vez, clique em OK, abra <b>Ajustes do Sistema → Privacidade e Segurança</b> e, no fim da página, clique em <b>Abrir mesmo assim</b>. Depois disso ele abre normalmente.</span><span lang="en">Because FileShare isn't notarized by Apple yet (a paid program). The first time, click OK, open <b>System Settings → Privacy &amp; Security</b> and, at the bottom, click <b>Open Anyway</b>. After that it opens normally.</span></div></div>
         </details>
         <details>
-          <summary><span lang="pt">Precisa de internet?</span><span lang="en">Does it need the internet?</span><span class="plus"></span></summary>
-          <div class="answer"><div><span lang="pt">Não. O Mac e o tablet conversam direto pelo Wi-Fi da sua casa; só precisam estar na mesma rede.</span><span lang="en">No. The Mac and the tablet talk directly over your home Wi-Fi; they just need to be on the same network.</span></div></div>
+          <summary><span lang="pt">Por que o tablet pede a permissão de acessibilidade?</span><span lang="en">Why does the tablet ask for the accessibility permission?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Só para a cópia automática: o Android só avisa um app de que você tocou em Copiar por meio da acessibilidade. O FileShare recebe apenas o nome do botão tocado e avisos do sistema como “Copiado”; não lê a tela nem o que você digita. É opcional: sem ela, use o botão Enviar ao Mac nas Configurações rápidas.</span><span lang="en">Only for automatic copy: Android only tells an app that you tapped Copy through accessibility. FileShare only gets the name of the tapped button and system notices like “Copied”; it doesn't read the screen or what you type. It's optional: without it, use the Send to Mac button in Quick Settings.</span></div></div>
         </details>
         <details>
           <summary><span lang="pt">Funciona com iPhone, iPad ou Windows?</span><span lang="en">Does it work with iPhone, iPad or Windows?</span><span class="plus"></span></summary>
-          <div class="answer"><div><span lang="pt">Por enquanto, é Mac (macOS 14 ou mais novo) com Android (13 ou mais novo). Feito e testado com um Galaxy Tab S9 FE.</span><span lang="en">For now it's Mac (macOS 14 or later) with Android (13 or later). Built and tested with a Galaxy Tab S9 FE.</span></div></div>
+          <div class="answer"><div><span lang="pt">Por enquanto, é Mac (macOS 14 ou mais novo) com Android (13 ou mais novo).</span><span lang="en">For now it's Mac (macOS 14 or later) with Android (13 or later).</span></div></div>
         </details>
         <details>
-          <summary><span lang="pt">Por que o tablet pede a permissão de acessibilidade?</span><span lang="en">Why does the tablet ask for the accessibility permission?</span><span class="plus"></span></summary>
-          <div class="answer"><div><span lang="pt">Só para a cópia automática: o Android só avisa um app de que você tocou em Copiar por meio da acessibilidade. O FileShare recebe apenas o nome do botão tocado; não lê a tela nem o que você digita. É opcional: sem ela, use o botão Enviar ao Mac.</span><span lang="en">Only for automatic copy: Android only tells an app that you tapped Copy through accessibility. FileShare only gets the name of the tapped button; it doesn't read the screen or what you type. It's optional: without it, use the Send to Mac button.</span></div></div>
+          <summary><span lang="pt">Funciona com qualquer celular ou tablet Android?</span><span lang="en">Does it work with any Android phone or tablet?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Deve funcionar em qualquer aparelho com Android 13 ou mais novo, mas foi feito e testado num Galaxy Tab S9 FE. Em outras marcas, a cópia automática pode não reconhecer o botão Copiar; o botão Enviar ao Mac e o Compartilhar funcionam em todos.</span><span lang="en">It should work on any device with Android 13 or later, but it was built and tested on a Galaxy Tab S9 FE. On other brands, automatic copy may not recognize the Copy button; the Send to Mac button and Share work everywhere.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Gasta muita bateria?</span><span lang="en">Does it drain the battery?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Não. O Mac só confere um contador do sistema a cada meio segundo (sem ler o que você copiou), e o tablet troca um sinal pequeno com o Mac a cada 20 segundos. No tablet, vale deixar o FileShare com <b>bateria sem restrição</b>, para o sistema não cortar a conexão.</span><span lang="en">No. The Mac only checks a system counter every half second (without reading what you copied), and the tablet exchanges a tiny signal with the Mac every 20 seconds. On the tablet, set FileShare to <b>unrestricted battery</b> so the system doesn't cut the connection.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">Posso usar com mais de um tablet ou pausar?</span><span lang="en">Can I use more than one tablet, or pause it?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Um tablet por vez: parear de novo substitui o anterior. Para pausar, clique no ícone ⇄ na barra de menu do Mac e desligue o <b>Sync</b>; nada é enviado nem recebido até você ligar de novo.</span><span lang="en">One tablet at a time: pairing again replaces the previous one. To pause, click the ⇄ icon in the Mac's menu bar and turn off <b>Sync</b>; nothing is sent or received until you turn it back on.</span></div></div>
         </details>
         <details>
           <summary><span lang="pt">Por que o app do Android não está na Play Store?</span><span lang="en">Why isn't the Android app on the Play Store?</span><span class="plus"></span></summary>
@@ -402,7 +434,7 @@
         </details>
         <details>
           <summary><span lang="pt">É grátis mesmo?</span><span lang="en">Is it really free?</span><span class="plus"></span></summary>
-          <div class="answer"><div><span lang="pt">Sim. Sem anúncios, sem plano pago, sem coleta de dados. Código aberto sob a licença MIT.</span><span lang="en">Yes. No ads, no paid plan, no data collection. Open source under the MIT license.</span></div></div>
+          <div class="answer"><div><span lang="pt">Sim. Sem anúncios, sem plano pago, sem conta e sem coleta de dados. Código aberto sob a licença MIT.</span><span lang="en">Yes. No ads, no paid plan, no account and no data collection. Open source under the MIT license.</span></div></div>
         </details>
       </div>
     </div>
