@@ -787,6 +787,7 @@ footer { padding: 56px 0 64px; color: var(--muted); font-size: 14px; }
 .mac-help li b { color: var(--text); }
 .mac-help li::marker { color: var(--accent); font-weight: 700; }
 .mac-help .alert-shot { display: block; width: 230px; height: auto; margin: 12px 0 2px; }
+.settings-shot { display: block; width: 100%; max-width: 460px; height: auto; margin-top: 10px; border-radius: 12px; border: 1px solid var(--line); }
 .settings-mock { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .settings-mock b { flex: none; padding: 6px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
 .mac-help .why { margin: 20px 0 0; font-size: 14px; color: var(--muted); }

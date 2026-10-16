@@ -54,6 +54,8 @@ It was built for, and tested with, a MacBook Air (macOS 26) and a Galaxy Tab S9 
 > 2. On this notice, click **Done**, the bottom button. **Don't** click *Move to Trash*, the blue button above it.
 > 3. Open **System Settings → Privacy & Security**, scroll to **Security** and click **Open Anyway**. Confirm with your password or Touch ID.
 >
+>    <img alt="System Settings, Privacy &amp; Security: “FileShare.app” was blocked to protect your Mac, with the Open Anyway button" src="docs/media/macos-open-anyway.png" width="460">
+>
 > That's it: from then on it opens normally. The code is open, so you can check all of it in this repository.
 
 The app lives in the menu bar (the ⇄ icon) and opens showing a QR code to pair your tablet.

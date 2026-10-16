@@ -54,6 +54,8 @@ Foi feito e testado com um MacBook Air (macOS 26) e um Galaxy Tab S9 FE (Android
 > 2. No aviso, clique no **botão de baixo** (*Done* no macOS em inglês). **Não** clique em *Move to Trash* (Mover para o Lixo), o botão azul de cima.
 > 3. Abra **Ajustes do Sistema → Privacidade e Segurança**, role até **Segurança** e clique em **Abrir mesmo assim**. Confirme com a sua senha ou o Touch ID.
 >
+>    <img alt="Ajustes do Sistema (em inglês), Privacidade e Segurança: “FileShare.app” foi bloqueado para proteger o Mac, com o botão Open Anyway (Abrir mesmo assim)" src="docs/media/macos-open-anyway.png" width="460">
+>
 > Pronto: daí em diante ele abre normalmente. O código é aberto, então dá para conferir tudo neste repositório.
 
 O app fica na barra de menu (o ícone ⇄) e abre mostrando um QR code para parear o tablet.
