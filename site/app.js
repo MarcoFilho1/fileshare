@@ -46,6 +46,18 @@
     });
   }
 
+  // baixar para Mac: o download começa e a janela explica o aviso da primeira abertura
+  var help = document.getElementById("mac-help");
+  if (help && help.showModal) {
+    var openHelp = function () { help.showModal(); };
+    document.querySelectorAll('[data-os="mac"]').forEach(function (a) { a.addEventListener("click", openHelp); });
+    document.querySelectorAll("[data-mac-help]").forEach(function (a) {
+      a.addEventListener("click", function (e) { e.preventDefault(); openHelp(); });
+    });
+    help.querySelectorAll(".close, .ok").forEach(function (b) { b.addEventListener("click", function () { help.close(); }); });
+    help.addEventListener("click", function (e) { if (e.target === help) help.close(); });
+  }
+
   // perguntas: abre e fecha deslizando
   document.querySelectorAll(".faq details").forEach(function (d) {
     var summary = d.querySelector("summary");

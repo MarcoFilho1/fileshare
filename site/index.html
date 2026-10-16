@@ -26,6 +26,8 @@
   <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6L12 3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
   <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.6"/><path d="M2 19h20"/></symbol>
   <symbol id="i-tablet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.2"/><path d="M11 16h2"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
 </svg>
 
@@ -39,7 +41,12 @@
       <a href="#seguranca"><span lang="pt">Segurança</span><span lang="en">Security</span></a>
       <a href="#perguntas"><span lang="pt">Perguntas</span><span lang="en">FAQ</span></a>
     </nav>
-    <a class="btn btn-ink btn-sm" href="#baixar"><span lang="pt">Baixar grátis</span><span lang="en">Download free</span></a>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm star-btn" href="https://github.com/MarcoFilho1/fileshare" target="_blank" rel="noopener" title="GitHub">
+        <svg><use href="#i-github"/></svg><svg class="st"><use href="#i-star"/></svg><span lang="pt">Estrela</span><span lang="en">Star</span>
+      </a>
+      <a class="btn btn-ink btn-sm" href="#baixar"><span lang="pt">Baixar grátis</span><span lang="en">Download free</span></a>
+    </div>
   </div>
 </header>
 
@@ -66,10 +73,14 @@
           <svg><use href="#i-tablet"/></svg><span lang="pt">Baixar para Android</span><span lang="en">Download for Android</span>
         </a>
       </div>
-      <p class="hero-note reveal" style="--d:.3s">
-        <span lang="pt">macOS 14+ · Android 13+ · <a href="#perguntas">primeira vez no Mac?</a></span>
-        <span lang="en">macOS 14+ · Android 13+ · <a href="#perguntas">first time on the Mac?</a></span>
-      </p>
+      <div class="mac-note reveal" style="--d:.3s">
+        <img src="media/macos-alert.png" alt="" width="62" height="66">
+        <p>
+          <span lang="pt"><b>Primeira vez no Mac?</b> O macOS vai dizer que não conseguiu verificar o FileShare. É normal para apps gratuitos fora da App Store. Clique em <b>Done</b> (o botão de baixo, <i>não</i> em Move to Trash) e depois em <b>Ajustes do Sistema → Privacidade e Segurança → Abrir mesmo assim</b>. <a href="#" data-mac-help>Ver o passo a passo</a></span>
+          <span lang="en"><b>First time on the Mac?</b> macOS will say it couldn't verify FileShare. That's normal for free apps outside the App Store. Click <b>Done</b> (the bottom button, <i>not</i> Move to Trash), then <b>System Settings → Privacy &amp; Security → Open Anyway</b>. <a href="#" data-mac-help>See it step by step</a></span>
+        </p>
+      </div>
+      <p class="hero-note reveal" style="--d:.34s">macOS 14+ · Android 13+</p>
     </div>
 
     <!-- o produto: uma foto copiada no Mac, colada nas notas do tablet e anotada com a caneta -->
@@ -451,15 +462,49 @@
         <svg><use href="#i-tablet"/></svg><span lang="pt">Baixar para Android</span><span lang="en">Download for Android</span>
       </a>
     </div>
+      <div class="mac-note">
+        <img src="media/macos-alert.png" alt="" width="62" height="66">
+        <p>
+          <span lang="pt"><b>Primeira vez no Mac?</b> O macOS vai dizer que não conseguiu verificar o FileShare. É normal para apps gratuitos fora da App Store. Clique em <b>Done</b> (o botão de baixo, <i>não</i> em Move to Trash) e depois em <b>Ajustes do Sistema → Privacidade e Segurança → Abrir mesmo assim</b>. <a href="#" data-mac-help>Ver o passo a passo</a></span>
+          <span lang="en"><b>First time on the Mac?</b> macOS will say it couldn't verify FileShare. That's normal for free apps outside the App Store. Click <b>Done</b> (the bottom button, <i>not</i> Move to Trash), then <b>System Settings → Privacy &amp; Security → Open Anyway</b>. <a href="#" data-mac-help>See it step by step</a></span>
+        </p>
+      </div>
     <p class="hero-note">v2.3.0 · macOS 14+ · Android 13+</p>
+    <a class="star-nudge" href="https://github.com/MarcoFilho1/fileshare" target="_blank" rel="noopener">
+      <svg><use href="#i-star"/></svg>
+      <span lang="pt">Gostou ou te ajudou? <b>Deixe uma estrela no GitHub</b>: é o que ajuda outras pessoas a encontrar o projeto.</span>
+      <span lang="en">Like it, or did it help? <b>Leave a star on GitHub</b>: it's what helps other people find the project.</span>
+    </a>
   </section>
 </main>
+
+<dialog class="mac-help" id="mac-help">
+  <button class="close" type="button" aria-label="Fechar">×</button>
+  <div class="eyebrow"><span lang="pt">Seu download começou</span><span lang="en">Your download has started</span></div>
+  <h3 class="display"><span lang="pt">Para abrir o FileShare <em>na primeira vez</em></span><span lang="en">Opening FileShare <em>the first time</em></span></h3>
+  <ol>
+    <li><span lang="pt">Abra o <b>FileShare.dmg</b> e arraste o FileShare para <b>Aplicativos</b>.</span><span lang="en">Open <b>FileShare.dmg</b> and drag FileShare to <b>Applications</b>.</span></li>
+    <li>
+      <span lang="pt">Abra o FileShare. O macOS vai mostrar este aviso. Clique em <b>Done</b>, o botão de baixo. <b>Não</b> clique em Move to Trash.</span>
+      <span lang="en">Open FileShare. macOS will show this notice. Click <b>Done</b>, the bottom button. <b>Don't</b> click Move to Trash.</span>
+      <img class="alert-shot" src="media/macos-alert.png" alt="macOS: “FileShare.app” Not Opened. Apple could not verify “FileShare.app” is free of malware. Buttons: Move to Trash, Done." width="186" height="198">
+    </li>
+    <li>
+      <span lang="pt">Abra <b>Ajustes do Sistema → Privacidade e Segurança</b>, role até <b>Segurança</b> e clique em <b>Abrir mesmo assim</b> (Open Anyway). Confirme com a sua senha ou o Touch ID.</span>
+      <span lang="en">Open <b>System Settings → Privacy &amp; Security</b>, scroll to <b>Security</b> and click <b>Open Anyway</b>. Confirm with your password or Touch ID.</span>
+      <div class="settings-mock"><span><span lang="pt">“FileShare.app” foi bloqueado para proteger o Mac.</span><span lang="en">“FileShare.app” was blocked to protect your Mac.</span></span><b><span lang="pt">Abrir mesmo assim</span><span lang="en">Open Anyway</span></b></div>
+    </li>
+    <li><span lang="pt">Pronto. Daqui em diante ele abre normalmente, já mostrando o QR code para parear o tablet.</span><span lang="en">That's it. From then on it opens normally, showing the QR code to pair your tablet.</span></li>
+  </ol>
+  <p class="why"><span lang="pt"><b>Por que isso acontece?</b> O FileShare ainda não é notarizado pela Apple, um programa pago. O código é aberto: dá para conferir tudo no GitHub.</span><span lang="en"><b>Why does this happen?</b> FileShare isn't notarized by Apple yet, a paid program. The code is open: you can check all of it on GitHub.</span></p>
+  <button class="btn btn-ink ok" type="button"><span lang="pt">Entendi</span><span lang="en">Got it</span></button>
+</dialog>
 
 <footer>
   <div class="wrap foot">
     <a class="brand" href="#top"><img src="icon.png" alt="">FileShare</a>
     <nav>
-      <a href="https://github.com/MarcoFilho1/fileshare">GitHub</a>
+      <a href="https://github.com/MarcoFilho1/fileshare">★ <span lang="pt">Estrela no GitHub</span><span lang="en">Star on GitHub</span></a>
       <a href="https://github.com/MarcoFilho1/fileshare/releases"><span lang="pt">Versões</span><span lang="en">Releases</span></a>
       <a href="https://github.com/MarcoFilho1/fileshare#segurança"><span lang="pt">Segurança</span><span lang="en">Security</span></a>
       <a href="https://github.com/MarcoFilho1/fileshare/blob/main/LICENSE"><span lang="pt">Licença MIT</span><span lang="en">MIT License</span></a>

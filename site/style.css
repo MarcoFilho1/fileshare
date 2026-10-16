@@ -758,3 +758,53 @@ footer { padding: 56px 0 64px; color: var(--muted); font-size: 14px; }
 .cell.accent .dev b { color: rgba(255, 255, 255, 0.75); }
 .cell.accent .dev .clip { background: #fff; border-color: transparent; color: #1d1d1f; }
 .cell .dragscene { margin: 0 -6px -6px; }
+
+/* ---------- aviso do Mac junto ao botão de baixar ---------- */
+.mac-note {
+  display: flex; gap: 14px; align-items: center; text-align: left; max-width: 600px; margin: 18px auto 0; position: relative;
+  padding: 12px 16px 12px 12px; border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent); border: 1px solid var(--line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.mac-note img { width: 62px; height: auto; flex: none; border-radius: 10px; }
+.mac-note p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.mac-note b { color: var(--text); font-weight: 600; }
+.mac-note a { color: var(--accent); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.mac-note a:hover { text-decoration: underline; }
+@media (max-width: 600px) { .mac-note { align-items: flex-start; } .mac-note img { width: 48px; } }
+
+.mac-help {
+  width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto;
+  border: 1px solid var(--line); border-radius: 28px; padding: 32px; background: var(--surface); color: var(--text);
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.45);
+}
+.mac-help::backdrop { background: rgba(10, 12, 20, 0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.mac-help[open] { animation: help-in 0.35s var(--ease); }
+@keyframes help-in { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+.mac-help h3 { font-size: 30px; margin: 10px 0 18px; }
+.mac-help ol { margin: 0; padding-left: 22px; display: grid; gap: 14px; }
+.mac-help li { color: var(--muted); }
+.mac-help li b { color: var(--text); }
+.mac-help li::marker { color: var(--accent); font-weight: 700; }
+.mac-help .alert-shot { display: block; width: 230px; height: auto; margin: 12px 0 2px; }
+.settings-mock { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.settings-mock b { flex: none; padding: 6px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.mac-help .why { margin: 20px 0 0; font-size: 14px; color: var(--muted); }
+.mac-help .why b { color: var(--text); }
+.mac-help .ok { margin-top: 22px; width: 100%; }
+.mac-help .close { position: absolute; right: 16px; top: 14px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+
+/* ---------- estrela no GitHub ---------- */
+.nav-cta { display: flex; gap: 8px; align-items: center; }
+.star-btn svg { width: 16px; height: 16px; }
+.star-btn .st { color: #e3a008; margin-left: -4px; }
+@media (max-width: 520px) { .star-btn span { display: none; } .star-btn { padding: 0 12px; } }
+.star-nudge {
+  display: inline-flex; align-items: center; gap: 10px; margin-top: 28px; padding: 12px 18px; border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px solid var(--line); color: var(--muted);
+  font-size: 14px; text-decoration: none; max-width: 640px; text-align: left; position: relative;
+  transition: transform 0.25s var(--ease), border-color 0.2s ease;
+}
+.star-nudge:hover { transform: translateY(-2px); border-color: #e3a008; }
+.star-nudge svg { width: 18px; height: 18px; color: #e3a008; flex: none; }
+.star-nudge b { color: var(--text); }
