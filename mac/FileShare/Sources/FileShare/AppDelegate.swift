@@ -5,19 +5,12 @@ import UniformTypeIdentifiers
 import UserNotifications
 
 /// Ícone na barra de menu: liga a área de transferência do Mac ao tablet nos dois sentidos.
+/// Clicar nele abre o painel de status (StatusPanel); arrastar um arquivo até perto dele abre o
+/// painel Send to Tablet (DropPanel).
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private let statusLine = NSMenuItem(title: "Iniciando…", action: nil, keyEquivalent: "")
-    private let lastLine = NSMenuItem(title: "Nada enviado ainda", action: nil, keyEquivalent: "")
-    private let pauseItem = NSMenuItem(title: "Pausar", action: #selector(togglePause), keyEquivalent: "p")
-    private let pairItem = NSMenuItem(title: "Parear tablet…", action: #selector(pair), keyEquivalent: "")
-    private let forgetItem = NSMenuItem(title: "Esquecer tablet", action: #selector(forget), keyEquivalent: "")
-    private let loginItem = NSMenuItem(title: "Abrir ao iniciar o Mac", action: #selector(toggleLoginItem), keyEquivalent: "")
-    private let sendFileItem = NSMenuItem(title: "Enviar arquivo ao tablet…", action: #selector(chooseFilesToSend), keyEquivalent: "")
-    private let folderItem = NSMenuItem(title: "Abrir pasta de recebidos", action: #selector(openReceivedFolder), keyEquivalent: "")
-    /// Só aparece quando os avisos estão desligados nos Ajustes (o macOS não pergunta duas vezes).
-    private let notificationsItem = NSMenuItem(title: "Ativar notificações de arquivos…", action: #selector(openNotificationSettings), keyEquivalent: "")
+    private let statusPanel = StatusPanelController()
     private let pairingWindow = PairingWindow()
     private let dropPanel = DropPanelController()
     private let dragWatcher = FileDragWatcher()
@@ -28,8 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var connected = false
     private var paused = false
 
+    private var status: StatusModel { statusPanel.model }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setUpMenu()
+        setUpStatusItem()
         #if DEBUG
         if let state = ProcessInfo.processInfo.environment["FILESHARE_DEMO_PANEL"] { return demoPanel(state) }
         #endif
@@ -38,14 +33,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             macId: PairingStore.macId,
             onReceive: { [weak self] payload in self?.received(payload) },
             onState: { [weak self] state in self?.update(state) },
-            onHeldDelivered: { [weak self] payload in self?.show(last: "Entregue ao tablet quando ele acordou: \(payload.summary)") },
+            onHeldDelivered: { [weak self] payload in
+                self?.status.log(.toTablet, L10n.t("Delivered on wake: ", "Entregue ao acordar: ") + Self.describe(payload))
+            },
             onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) },
             onFileEvent: { [weak self] event in self?.fileEvent(event) })
         setUpNotifications()
         let key = PairingStore.loadKey()
-        forgetItem.isEnabled = key != nil
-        dropPanel.model.paired = key != nil
-        if let name = UserDefaults.standard.string(forKey: "tabletName") { dropPanel.model.tabletName = name }
+        setPaired(key != nil)
+        if let name = UserDefaults.standard.string(forKey: "tabletName") {
+            dropPanel.model.tabletName = name
+            status.tabletName = name
+        }
         server.setPairingKey(key)
         enableLoginItemOnFirstInstall()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
@@ -53,46 +52,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
         setUpDrop()
+        // primeira vez (ou tablet esquecido): já mostra como parear
+        if key == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.pair() } }
     }
 
-    private func setUpMenu() {
+    private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let menu = NSMenu()
-        statusLine.isEnabled = false
-        lastLine.isEnabled = false
-        pauseItem.target = self
-        pairItem.target = self
-        forgetItem.target = self
-        loginItem.target = self
-        folderItem.target = self
-        sendFileItem.target = self
-        notificationsItem.target = self
-        notificationsItem.isHidden = true
-        menu.autoenablesItems = false
-        menu.addItem(statusLine)
-        menu.addItem(lastLine)
-        menu.addItem(.separator())
-        menu.addItem(sendFileItem)
-        menu.addItem(folderItem)
-        menu.addItem(notificationsItem)
-        menu.addItem(pauseItem)
-        menu.addItem(pairItem)
-        menu.addItem(forgetItem)
-        menu.addItem(loginItem)
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Sair do FileShare", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        menu.delegate = self
-        statusItem.menu = menu
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(togglePanel)
+        statusItem.button?.sendAction(on: [.leftMouseDown, .rightMouseDown])
+        statusPanel.onVisibleChange = { [weak self] on in
+            self?.refreshHighlight()
+            if on { self?.refreshNotifications() }
+        }
+        status.actions = .init(
+            togglePause: { [weak self] in self?.togglePause() },
+            toggleLogin: { [weak self] in self?.toggleLoginItem() },
+            sendFile: { [weak self] in self?.chooseFilesToSend() },
+            openFolder: { [weak self] in self?.statusPanel.hide(); self?.openReceivedFolder() },
+            pair: { [weak self] in self?.statusPanel.hide(); self?.pair() },
+            forget: { [weak self] in self?.forget() },
+            enableNotifications: { [weak self] in self?.statusPanel.hide(); self?.openNotificationSettings() },
+            quit: { NSApp.terminate(nil) })
         updateIcon()
+    }
+
+    @objc private func togglePanel() {
+        guard let icon = iconFrame(near: NSEvent.mouseLocation) else { return }
+        statusPanel.toggle(below: icon)
+    }
+
+    /// O ⇄ fica aceso enquanto um dos painéis está aberto, como a Central de Controle.
+    private func refreshHighlight() {
+        statusItem.button?.highlight(statusPanel.isVisible || dropPanel.isVisible)
     }
 
     private func copied(_ payload: ClipPayload) {
         guard !paused else { return }
         server.send(payload) { [weak self] result in
             switch result {
-            case .success(.delivered): self?.show(last: "Enviado ao tablet: \(payload.summary)")
-            case .success(.held): self?.show(last: "Guardado até o tablet acordar: \(payload.summary)")
-            case .failure(let error): self?.show(last: "Falha ao enviar: \(error.localizedDescription)")
+            case .success(.delivered): self?.status.log(.toTablet, Self.describe(payload))
+            case .success(.held): self?.status.log(.waiting, Self.describe(payload))
+            case .failure(let error): self?.status.log(.failed, error.localizedDescription)
             }
         }
     }
@@ -100,18 +101,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func received(_ payload: ClipPayload) {
         guard !paused else { return }
         if PasteboardWriter.write(payload, to: .general) {
-            show(last: "Recebido do tablet: \(payload.summary)")
+            status.log(.fromTablet, Self.describe(payload))
         } else {
-            show(last: "Não consegui abrir a imagem recebida")
+            status.log(.failed, L10n.t("Couldn't open the received image", "Não consegui abrir a imagem recebida"))
         }
+    }
+
+    /// Como uma cópia aparece na lista de atividade: o começo do texto, ou "Imagem (150 KB)".
+    private static func describe(_ payload: ClipPayload) -> String {
+        if payload.isImage {
+            return L10n.t("Image", "Imagem") + " (\(ByteCountFormatter.string(fromByteCount: Int64(payload.data.count), countStyle: .file)))"
+        }
+        let text = String(decoding: payload.data, as: UTF8.self)
+            .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+        return "“\(text.count > 60 ? String(text.prefix(60)) + "…" : text)”"
     }
 
     // MARK: Arquivos Mac → tablet
 
-    @objc private func chooseFilesToSend() {
+    private func chooseFilesToSend() {
+        statusPanel.hide()
         let panel = NSOpenPanel()
-        panel.title = "Enviar ao tablet"
-        panel.prompt = "Enviar"
+        panel.title = L10n.t("Send to Tablet", "Enviar ao tablet")
+        panel.prompt = L10n.t("Send", "Enviar")
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         NSApp.activate()
@@ -132,9 +144,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.sensors.hide()
             self?.server.sendFiles(urls)
         }
-        dropPanel.onVisibleChange = { [weak self] on in self?.statusItem.button?.highlight(on) }
+        dropPanel.onVisibleChange = { [weak self] _ in self?.refreshHighlight() }
         dragWatcher.onDragStart = { [weak self] in
             guard let self, !dropPanel.model.isTransferring else { return }
+            statusPanel.hide()
             sensors.show(below: allIconFrames)
         }
         sensors.onFileNear = { [weak self] icon in
@@ -187,11 +200,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func fileEvent(_ event: TabletServer.FileEvent) {
         dropPanel.handle(event)
         switch event {
-        case .queued(let name): show(last: "\(name) vai quando o tablet acordar")
-        case .progress(let name, let fraction):
-            lastLine.title = "Enviando \(name) ao tablet… \(Int(fraction * 100))%"
-        case .delivered(let name): show(last: "Enviado ao tablet: \(name)")
-        case .failed(let name, let reason): show(last: "Não enviei \(name): \(reason)")
+        case .queued(let name):
+            status.sending = nil
+            if !status.activity.contains(where: { $0.kind == .waiting && $0.text == name }) { status.log(.waiting, name) }
+        case .progress(let name, let fraction): status.sending = (name, fraction)
+        case .delivered(let name):
+            status.sending = nil
+            status.log(.toTablet, name)
+        case .failed(let name, let reason):
+            status.sending = nil
+            status.log(.failed, "\(name): \(reason)")
         }
     }
 
@@ -202,16 +220,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { granted, error in
             if !granted { NSLog("FileShare: notificações desligadas \(error.map { "(\($0))" } ?? "")") }
-            DispatchQueue.main.async { self.notificationsItem.isHidden = granted }
+            DispatchQueue.main.async { self.status.notificationsAllowed = granted }
         }
     }
 
-    @objc private func openNotificationSettings() {
+    /// Reconfere os avisos a cada abertura do painel: o item some assim que forem ligados nos Ajustes.
+    private func refreshNotifications() {
+        guard Bundle.main.bundleIdentifier != nil else { return } // fora do .app (demonstração) não há avisos
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let allowed = settings.authorizationStatus == .authorized
+            DispatchQueue.main.async { self.status.notificationsAllowed = allowed }
+        }
+    }
+
+    private func openNotificationSettings() {
         let id = Bundle.main.bundleIdentifier ?? "dev.marcofilho.fileshare"
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")!)
     }
 
-    @objc private func openReceivedFolder() {
+    private func openReceivedFolder() {
         let folder = TabletServer.receivedFolder
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         NSWorkspace.shared.open(folder)
@@ -220,10 +247,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Arquivo salvo em Downloads: avisa, e clicar no aviso abre o arquivo.
     private func receivedFile(_ url: URL, mime: String, from tablet: String) {
         let kind = Self.kind(of: mime)
-        show(last: "\(kind) recebido: \(url.lastPathComponent)")
+        status.log(.fromTablet, url.lastPathComponent)
         let content = UNMutableNotificationContent()
-        content.title = "\(kind) recebido de \(tablet)"
-        content.body = "\(url.lastPathComponent) — clique para abrir"
+        content.title = L10n.t("\(kind) from \(tablet)", "\(kind) recebido de \(tablet)")
+        content.body = url.lastPathComponent + L10n.t(" — click to open", " — clique para abrir")
         content.sound = .default
         content.userInfo = ["path": url.path]
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)) { error in
@@ -233,48 +260,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func kind(of mime: String) -> String {
         if mime == "application/pdf" { return "PDF" }
-        if mime.hasPrefix("image/") { return "Imagem" }
-        if mime.hasPrefix("video/") { return "Vídeo" }
-        return "Arquivo"
+        if mime.hasPrefix("image/") { return L10n.t("Image", "Imagem") }
+        if mime.hasPrefix("video/") { return L10n.t("Video", "Vídeo") }
+        return L10n.t("File", "Arquivo")
     }
 
     private func update(_ state: TabletServer.State) {
         switch state {
-        case .unpaired: statusLine.title = "Nenhum tablet pareado: use Parear tablet…"
-        case .waiting: statusLine.title = "Aguardando o tablet no Wi-Fi"
+        case .unpaired: status.link = .unpaired
+        case .waiting: status.link = .searching
         case .connected(let name):
-            statusLine.title = "Conectado: \(name) (Wi-Fi, criptografado)"
-            pairingWindow.close()
-        case .rejected: statusLine.title = "Recusei um aparelho sem a chave do pareamento"
-        case .failed(let reason): statusLine.title = "Erro de rede: \(reason)"
-        }
-        if case .connected(let name) = state {
-            connected = true
+            status.link = .connected
+            status.tabletName = name
             dropPanel.model.tabletName = name
-            UserDefaults.standard.set(name, forKey: "tabletName") // o painel mostra o nome mesmo com o tablet dormindo
-        } else {
-            connected = false
+            UserDefaults.standard.set(name, forKey: "tabletName") // os painéis mostram o nome mesmo com o tablet dormindo
+            pairingWindow.connected(to: name)
+        case .rejected: status.link = .rejected
+        case .failed(let reason): status.link = .failed(reason)
         }
+        connected = status.link == .connected
         dropPanel.model.connected = connected
         updateIcon()
     }
 
+    private func setPaired(_ paired: Bool) {
+        dropPanel.model.paired = paired
+        if !paired { status.link = .unpaired } else if status.link == .unpaired { status.link = .searching }
+    }
+
     /// Gera uma chave nova (substitui o tablet anterior) e mostra o QR.
-    @objc private func pair() {
+    private func pair() {
         let key = SecureChannel.randomBytes(32)
         guard PairingStore.saveKey(key) else {
-            return show(last: "Não consegui guardar a chave no Keychain")
+            return status.log(.failed, L10n.t("Couldn't save the key in the Keychain", "Não consegui guardar a chave no Keychain"))
         }
-        forgetItem.isEnabled = true
-        dropPanel.model.paired = true
+        setPaired(true)
         server.setPairingKey(key)
         pairingWindow.show(link: PairingLink.url(macId: PairingStore.macId, name: Host.current().localizedName ?? "Mac", key: key))
     }
 
-    @objc private func forget() {
+    private func forget() {
         PairingStore.deleteKey()
-        forgetItem.isEnabled = false
-        dropPanel.model.paired = false
+        setPaired(false)
         server.setPairingKey(nil)
     }
 
@@ -290,7 +317,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshLoginItem()
     }
 
-    @objc private func toggleLoginItem() {
+    private func toggleLoginItem() {
         let service = SMAppService.mainApp
         do {
             if service.status == .enabled {
@@ -299,25 +326,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try service.register()
             }
         } catch {
-            show(last: "Não consegui mudar a abertura automática: \(error.localizedDescription)")
+            status.log(.failed, error.localizedDescription)
         }
         if service.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
         refreshLoginItem()
     }
 
     private func refreshLoginItem() {
-        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        status.openAtLogin = SMAppService.mainApp.status == .enabled
     }
 
-    @objc private func togglePause() {
+    private func togglePause() {
         paused.toggle()
-        pauseItem.title = paused ? "Retomar" : "Pausar"
+        status.paused = paused
         updateIcon()
-    }
-
-    private func show(last text: String) {
-        let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
-        lastLine.title = "\(text) às \(time)"
     }
 
     private func updateIcon() {
@@ -330,8 +352,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 #if DEBUG
 extension AppDelegate {
+    private func demoStatus(_ state: String) {
+        status.tabletName = "Galaxy Tab S9 FE"
+        status.link = state == "status-unpaired" ? .unpaired : state == "status-asleep" ? .searching : .connected
+        status.openAtLogin = true
+        status.notificationsAllowed = state != "status-asleep"
+        if state == "status" || state == "status-asleep" {
+            status.log(.toTablet, "“Reunião às 15h na sala 2”")
+            status.log(.fromTablet, "Correção prova 1.pdf")
+            status.log(.toTablet, "Imagem (1,2 MB)")
+            status.sending = ("Aula 7 - slides.pdf", 0.45)
+        }
+        statusPanel.keepOpen = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
+            if state == "pairing" || state == "paired" {
+                pairingWindow.show(link: "fileshare://pair?v=1&id=demo&name=Mac&k=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                if state == "paired" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.pairingWindow.connected(to: "Galaxy Tab S9 FE", closeAfter: false) } }
+                return
+            }
+            guard let icon = iconFrame else { return }
+            statusPanel.show(below: icon)
+        }
+    }
+
     /// Só na versão de desenvolvimento: mostra o painel num estado fixo, para conferir o visual.
     private func demoPanel(_ state: String) {
+        // fora do pacote .app não há ícone: usa o gerado pelo script
+        if let icon = NSImage(contentsOfFile: "Resources/AppIcon.icns") { NSApp.applicationIconImage = icon }
+        if ProcessInfo.processInfo.environment["FILESHARE_DEMO_DARK"] != nil { NSApp.appearance = NSAppearance(named: .darkAqua) }
+        if state.hasPrefix("status") || state.hasPrefix("pair") { return demoStatus(state) }
         let model = dropPanel.model
         dropPanel.keepOpen = true
         if ProcessInfo.processInfo.environment["FILESHARE_DEMO_DARK"] != nil { NSApp.appearance = NSAppearance(named: .darkAqua) }
@@ -372,16 +421,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
-    }
-}
-
-extension AppDelegate: NSMenuDelegate {
-    /// Reconfere os avisos a cada abertura do menu: some o item assim que forem ligados nos Ajustes.
-    func menuWillOpen(_ menu: NSMenu) {
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            let allowed = settings.authorizationStatus == .authorized
-            DispatchQueue.main.async { self.notificationsItem.isHidden = allowed }
-        }
     }
 }
 

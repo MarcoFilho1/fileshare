@@ -1,3 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="a11y_desc">FileShare: percebe quando você toca em \"Copiar\" e envia o que foi copiado ao seu Mac. Não lê o conteúdo da tela.</string>
+    <string name="a11y_desc">FileShare: notices when you tap \"Copy\" and sends what was copied to your Mac. It does not read the screen content.</string>
+    <string name="a11y_label">FileShare: automatic copy</string>
+    <string name="send_to_mac">Send to Mac</string>
+
+    <string name="tagline">Clipboard and files between this tablet and your Mac</string>
+    <string name="unpaired_title">Not paired yet</string>
+    <string name="unpaired_subtitle">Pair once with the QR code on your Mac</string>
+    <string name="pair_steps">1. Install FileShare on your Mac (github.com/MarcoFilho1/fileshare).\n2. On the Mac, click ⇄ in the menu bar → Pair tablet….\n3. Point this tablet\'s camera at the QR code and tap the link.</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_searching">Looking for the Mac on Wi-Fi…</string>
+    <string name="encrypted">End-to-end encrypted, only on your Wi-Fi</string>
+
+    <string name="section_setup">Setup</string>
+    <string name="section_howto">How to use</string>
+
+    <string name="copy_title">Automatic copy</string>
+    <string name="copy_on">Whatever you copy goes to the Mac</string>
+    <string name="copy_off">Turn on FileShare in Accessibility</string>
+    <string name="notif_title">Notifications</string>
+    <string name="notif_on">You\'ll see files arriving from the Mac</string>
+    <string name="notif_off">Needed to show files received from the Mac</string>
+    <string name="battery_title">Battery: unrestricted</string>
+    <string name="battery_on">Stays connected while the tablet sleeps</string>
+    <string name="battery_off">Recommended so the tablet doesn\'t drop the connection</string>
+    <string name="tile_title">Send to Mac button</string>
+    <string name="tile_on">In Quick Settings</string>
+    <string name="tile_off">Add it to Quick Settings to send with one tap</string>
+
+    <string name="howto_paste_title">Copy and paste</string>
+    <string name="howto_paste_text">Copy text or an image on one device and paste it on the other.</string>
+    <string name="howto_share_title">Send files to the Mac</string>
+    <string name="howto_share_text">In any app, tap Share → Send to Mac. They arrive in Downloads › FileShare on the Mac.</string>
+    <string name="howto_folder_title">Files from the Mac</string>
+    <string name="howto_folder_text">Drag files to ⇄ on the Mac. They arrive in Download › FileShare.</string>
+
+    <string name="action_turn_on">Turn on</string>
+    <string name="action_allow">Allow</string>
+    <string name="action_add">Add</string>
+    <string name="action_open">Open</string>
+    <string name="action_continue">Continue</string>
+    <string name="done">Done</string>
+
+    <string name="forget_mac">Forget this Mac</string>
+    <string name="forget_title">Forget %1$s?</string>
+    <string name="forget_text">To connect again, you\'ll need to scan a new QR code on the Mac.</string>
+    <string name="forget_confirm">Forget</string>
+    <string name="cancel">Cancel</string>
+    <string name="footer">FileShare %1$s · open source (MIT)</string>
+    <string name="no_file_manager">No app to open the folder</string>
+
+    <string name="pair_ok_title">Paired with %1$s</string>
+    <string name="pair_ok_text">The tablet connects to the Mac on its own over Wi-Fi, encrypted. You can close this screen.</string>
+    <string name="pair_fail_title">Couldn\'t pair</string>
+    <string name="pair_fail_text">Scan the QR code again: on the Mac, click ⇄ → Pair tablet….</string>
 </resources>
