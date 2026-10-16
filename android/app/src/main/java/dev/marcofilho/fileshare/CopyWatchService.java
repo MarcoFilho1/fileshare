@@ -23,6 +23,21 @@ public class CopyWatchService extends AccessibilityService {
     private final Handler main = new Handler(Looper.getMainLooper());
     private long lastTrigger;
 
+    /**
+     * O sistema liga a acessibilidade logo no desbloqueio, mas o One UI chega a atrasar o
+     * BOOT_COMPLETED em minutos: aproveita para subir o serviço de conexão mais cedo.
+     */
+    @Override
+    protected void onServiceConnected() {
+        if (PairingStore.load(this) == null) return;
+        try {
+            startForegroundService(new Intent(this, BridgeService.class));
+            Log.i(BridgeService.TAG, "service started by accessibility binding");
+        } catch (Exception e) {
+            Log.w(BridgeService.TAG, "could not start service from accessibility: " + e);
+        }
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
         String reason = triggerReason(e);

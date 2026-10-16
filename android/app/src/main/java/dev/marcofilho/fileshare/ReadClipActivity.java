@@ -35,6 +35,7 @@ public class ReadClipActivity extends Activity {
         try {
             ClipData clip = getSystemService(ClipboardManager.class).getPrimaryClip();
             ClipReader.Payload p = ClipReader.read(this, clip);
+            if (p != null) BridgeService.lastUserCopyAt = System.currentTimeMillis();
             if (p == null) {
                 if (!auto) MacSender.toast(this, "Nada para enviar");
             } else if (auto && isRepeat(p)) {

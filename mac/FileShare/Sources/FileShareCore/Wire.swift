@@ -6,7 +6,16 @@ public enum WireMessage: Equatable, Sendable {
     case auth(nonce: Data)
     case hello(name: String)
     case clip(id: Int, payload: ClipPayload)
+    /// Cópia que o Mac guardou enquanto o tablet estava desconectado, com o horário em que foi feita
+    /// (ms desde 1970), para o tablet não sobrescrever algo que o usuário copiou lá depois.
+    case held(id: Int, copiedAt: Int64, payload: ClipPayload)
+    /// Início de um arquivo vindo do menu Compartilhar do tablet; o conteúdo segue em PARTs.
+    case file(id: Int, size: Int64, mime: String, name: String)
+    /// Pedaço do arquivo `id`, em ordem. Quando o total chega a `size`, o Mac confirma com ACK.
+    case part(id: Int, data: Data)
     case ack(id: Int)
+    /// O Mac recusou o arquivo `id` (grande demais, sem espaço…); o motivo aparece no tablet.
+    case fail(id: Int, reason: String)
     case ping
     case pong
 }
@@ -15,6 +24,9 @@ public enum WireMessage: Equatable, Sendable {
 /// depois do AUTH, cada quadro vai cifrado pelo SecureChannel.
 public enum Wire {
     public static let maxPayload = 25 * 1024 * 1024
+    /// Arquivos vão em pedaços, então podem passar do limite de um quadro.
+    public static let maxFileSize: Int64 = 100 * 1024 * 1024
+    public static let partSize = 512 * 1024
     static let maxFrame = maxPayload + 1024
 
     public enum DecodeError: Error, Equatable {
@@ -42,7 +54,17 @@ public enum Wire {
             var d = Data("CLIP \(id) \(payload.mime)\n".utf8)
             d.append(payload.data)
             return d
+        case .held(let id, let copiedAt, let payload):
+            var d = Data("HELD \(id) \(copiedAt) \(payload.mime)\n".utf8)
+            d.append(payload.data)
+            return d
+        case .file(let id, let size, let mime, let name): return Data("FILE \(id) \(size) \(mime) \(name)\n".utf8)
+        case .part(let id, let data):
+            var d = Data("PART \(id)\n".utf8)
+            d.append(data)
+            return d
         case .ack(let id): return Data("ACK \(id)\n".utf8)
+        case .fail(let id, let reason): return Data("FAIL \(id) \(reason)\n".utf8)
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
         }
@@ -52,7 +74,7 @@ public enum Wire {
         guard let nl = bytes.firstIndex(of: UInt8(ascii: "\n")) else { throw DecodeError.badMessage("sem cabeçalho") }
         let header = String(decoding: bytes[bytes.startIndex..<nl], as: UTF8.self)
         let body = Data(bytes[(nl + 1)...])
-        let parts = header.split(separator: " ", maxSplits: 2).map(String.init)
+        let parts = header.split(separator: " ", maxSplits: Self.argumentCount(header)).map(String.init)
         switch parts.first {
         case "AUTH":
             guard parts.count == 2, let nonce = Data(base64Encoded: parts[1]), nonce.count == 16 else {
@@ -64,13 +86,36 @@ public enum Wire {
         case "CLIP":
             guard parts.count == 3, let id = Int(parts[1]), !body.isEmpty else { throw DecodeError.badMessage(header) }
             return .clip(id: id, payload: ClipPayload(mime: parts[2], data: body))
+        case "HELD":
+            guard parts.count == 4, let id = Int(parts[1]), let copiedAt = Int64(parts[2]), !body.isEmpty else {
+                throw DecodeError.badMessage(header)
+            }
+            return .held(id: id, copiedAt: copiedAt, payload: ClipPayload(mime: parts[3], data: body))
+        case "FILE":
+            guard parts.count == 5, let id = Int(parts[1]), let size = Int64(parts[2]), size >= 0, body.isEmpty else {
+                throw DecodeError.badMessage(header)
+            }
+            return .file(id: id, size: size, mime: parts[3], name: parts[4])
+        case "PART":
+            guard parts.count == 2, let id = Int(parts[1]), !body.isEmpty else { throw DecodeError.badMessage(header) }
+            return .part(id: id, data: body)
         case "ACK":
             guard parts.count == 2, let id = Int(parts[1]) else { throw DecodeError.badMessage(header) }
             return .ack(id: id)
+        case "FAIL":
+            guard parts.count == 3, let id = Int(parts[1]) else { throw DecodeError.badMessage(header) }
+            return .fail(id: id, reason: parts[2])
         case "PING": return .ping
         case "PONG": return .pong
         default: throw DecodeError.badMessage(header)
         }
+    }
+
+    /// Quantos cortes no cabeçalho: o último argumento (nome, mime) pode ter espaços.
+    private static func argumentCount(_ header: String) -> Int {
+        if header.hasPrefix("FILE ") { return 4 }
+        if header.hasPrefix("HELD ") { return 3 }
+        return 2
     }
 }
 

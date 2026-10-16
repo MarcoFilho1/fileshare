@@ -59,6 +59,59 @@ public class WireTest {
     }
 
     @Test
+    public void heldCarriesCopyTime() throws IOException {
+        Wire.Message m = Wire.decode(Wire.messageBytes(
+                Wire.Message.held(2, 1_792_000_000_123L, "text/plain", "guardado".getBytes(StandardCharsets.UTF_8))));
+        assertEquals(Wire.Type.HELD, m.type);
+        assertEquals(2, m.id);
+        assertEquals(1_792_000_000_123L, m.copiedAt);
+        assertEquals("text/plain", m.text);
+        assertEquals("guardado", new String(m.data, StandardCharsets.UTF_8));
+    }
+
+    /** Mesmo cabeçalho que o Wire.swift gera para .held. */
+    @Test
+    public void heldMatchesMacFormat() {
+        byte[] bytes = Wire.messageBytes(Wire.Message.held(2, 1_792_000_000_123L, "text/plain", "x".getBytes(StandardCharsets.UTF_8)));
+        assertEquals("HELD 2 1792000000123 text/plain\nx", new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    /** Mesmo cabeçalho do WireTests.swift: o nome do arquivo vai por último e pode ter espaços. */
+    @Test
+    public void fileHeaderMatchesMacFormat() throws IOException {
+        byte[] bytes = Wire.messageBytes(Wire.Message.file(4, 2048, "application/pdf", "Nota de aula.pdf"));
+        assertEquals("FILE 4 2048 application/pdf Nota de aula.pdf\n", new String(bytes, StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals(Wire.Type.FILE, m.type);
+        assertEquals(4, m.id);
+        assertEquals(2048, m.size);
+        assertEquals("application/pdf", m.text);
+        assertEquals("Nota de aula.pdf", m.name);
+    }
+
+    @Test
+    public void partAndFailRoundTrip() throws IOException {
+        byte[] chunk = {'%', 'P', 'D', 'F', '\n'};
+        Wire.Message part = Wire.decode(Wire.messageBytes(Wire.Message.part(4, chunk)));
+        assertEquals(Wire.Type.PART, part.type);
+        assertEquals(4, part.id);
+        assertArrayEquals(chunk, part.data);
+
+        Wire.Message fail = Wire.decode("FAIL 4 arquivo maior que 100 MB\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals(Wire.Type.FAIL, fail.type);
+        assertEquals(4, fail.id);
+        assertEquals("arquivo maior que 100 MB", fail.text);
+    }
+
+    @Test
+    public void downloadNamesFromMacAreSafe() {
+        assertEquals("-..-.ssh-authorized_keys", IncomingDownload.safeName("../../.ssh/authorized_keys"));
+        assertEquals("zshrc", IncomingDownload.safeName(".zshrc"));
+        assertEquals("Aula3.pdf", IncomingDownload.safeName("Aula\n3.pdf"));
+        assertEquals("arquivo", IncomingDownload.safeName("  "));
+    }
+
+    @Test
     public void rejectsOversizedFrame() {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(new byte[]{0x7f, (byte) 0xff, (byte) 0xff, (byte) 0xff}));
         assertThrows(IOException.class, () -> Wire.read(in));

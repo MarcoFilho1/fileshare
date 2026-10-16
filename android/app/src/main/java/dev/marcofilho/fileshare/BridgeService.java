@@ -3,10 +3,14 @@ package dev.marcofilho.fileshare;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -30,15 +34,25 @@ import java.util.Arrays;
 public class BridgeService extends Service {
     static final String TAG = "FileShare";
     static final String CLIP_LABEL = "FileShare";
+    private static final String FILES_CHANNEL = "received-files";
     private static final int NOTIFICATION_ID = 1;
     private static final int MAX_CACHED_IMAGES = 10;
 
     /** Quando gravamos algo vindo do Mac; o aviso de "copiado" que o sistema mostra em seguida não é do usuário. */
     static volatile long lastSetFromMacAt;
 
+    /** Quando o usuário copiou algo no tablet (relógio de parede, ms), para comparar com o HELD do Mac. */
+    static volatile long lastUserCopyAt;
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private MacLink link;
     private ConnectivityManager.NetworkCallback networkCallback;
+    private final BroadcastReceiver screenOn = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context ctx, Intent intent) {
+            if (link != null) link.onScreenOn();
+        }
+    };
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -54,8 +68,22 @@ public class BridgeService extends Service {
                 }
 
                 @Override
+                public void onHeld(String mime, byte[] data, long copiedAt) {
+                    if (copiedAt < lastUserCopyAt) {
+                        Log.i(TAG, "held copy from Mac is older than the last copy on the tablet; ignored");
+                        return;
+                    }
+                    received(mime, data);
+                }
+
+                @Override
                 public void onState(String state) {
                     nm.notify(NOTIFICATION_ID, notification(state));
+                }
+
+                @Override
+                public void onFile(Uri uri, String name, String mime, String macName) {
+                    notifyFile(uri, name, mime, macName);
                 }
             });
             link.start();
@@ -66,7 +94,11 @@ public class BridgeService extends Service {
                 }
             };
             getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(networkCallback);
+            IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_ON);
+            f.addAction(Intent.ACTION_USER_PRESENT);
+            registerReceiver(screenOn, f, RECEIVER_NOT_EXPORTED);
         }
+        ShareTargets.update(this);
         return START_STICKY;
     }
 
@@ -77,6 +109,25 @@ public class BridgeService extends Service {
                 .setSmallIcon(android.R.drawable.stat_sys_upload_done)
                 .setOngoing(true)
                 .build();
+    }
+
+    /** Aviso de arquivo recebido; tocar abre o arquivo no app escolhido (Samsung Notes para PDF, por exemplo). */
+    private void notifyFile(Uri uri, String name, String mime, String macName) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.createNotificationChannel(new NotificationChannel(FILES_CHANNEL, "Arquivos recebidos do Mac", NotificationManager.IMPORTANCE_DEFAULT));
+        Intent open = new Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, mime)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent tap = PendingIntent.getActivity(this, uri.hashCode(), Intent.createChooser(open, "Abrir " + name),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        String kind = mime.equals("application/pdf") ? "PDF" : mime.startsWith("image/") ? "Imagem" : mime.startsWith("video/") ? "Vídeo" : "Arquivo";
+        nm.notify(uri.hashCode(), new Notification.Builder(this, FILES_CHANNEL)
+                .setContentTitle(kind + " recebido do " + macName)
+                .setContentText(name + " — toque para abrir (Downloads › FileShare)")
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentIntent(tap)
+                .setAutoCancel(true)
+                .build());
     }
 
     private void received(String mime, byte[] data) {
@@ -119,7 +170,10 @@ public class BridgeService extends Service {
 
     @Override
     public void onDestroy() {
-        if (networkCallback != null) getSystemService(ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
+        if (networkCallback != null) {
+            getSystemService(ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
+            unregisterReceiver(screenOn);
+        }
         if (link != null) link.stop();
         super.onDestroy();
     }
