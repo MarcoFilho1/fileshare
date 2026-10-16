@@ -84,12 +84,12 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
 }
 /* destaque dos títulos: a cor do FileShare (no lugar do itálico) */
 .display em, .hero h1 .sans {
+  /* o azul do ícone do FileShare, sólido (sem degradê) */
   font-style: normal;
-  background: linear-gradient(100deg, #2f7bf6, #4a40db);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  color: #1c5fe0;
 }
-@media (prefers-color-scheme: dark) { .display em, .hero h1 .sans { background-image: linear-gradient(100deg, #6aa0ff, #9a8cff); } }
-.dark-band .display em { background-image: linear-gradient(100deg, #6aa0ff, #9a8cff); }
+@media (prefers-color-scheme: dark) { .display em, .hero h1 .sans { color: #5b8fff; } }
+.dark-band .display em { color: #5b8fff; }
 .h2 { font-size: clamp(36px, 5vw, 60px); margin: 14px 0 0; }
 .lede { font-size: clamp(18px, 2vw, 21px); color: var(--muted); max-width: 620px; margin: 0; }
 
