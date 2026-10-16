@@ -87,7 +87,7 @@
 
   // ---------- partículas ----------
   // Ícones minúsculos de arquivos (documento, imagem, planilha, PDF, pasta, música, zip, código,
-  // prancheta) espalhados num anel em volta do centro, girando devagar; perto do ponteiro eles se
+  // vídeo, link, prancheta) espalhados num anel em volta do centro, girando devagar; perto do ponteiro eles se
   // afastam. Cada ícone é desenhado uma vez num sprite e só é copiado a cada quadro.
   var ICONS = {
     doc: function (c) { c.beginPath(); c.moveTo(3, 1); c.lineTo(7.5, 1); c.lineTo(10, 3.5); c.lineTo(10, 11); c.lineTo(3, 11); c.closePath(); c.moveTo(7.5, 1); c.lineTo(7.5, 3.5); c.lineTo(10, 3.5); c.moveTo(4.8, 6.3); c.lineTo(8.2, 6.3); c.moveTo(4.8, 8.4); c.lineTo(8.2, 8.4); c.stroke(); },
@@ -98,6 +98,12 @@
     music: function (c) { c.beginPath(); c.moveTo(5, 9); c.lineTo(5, 2.6); c.lineTo(10, 1.6); c.lineTo(10, 8); c.stroke(); c.beginPath(); c.arc(3.7, 9, 1.4, 0, 7); c.arc(8.7, 8, 1.4, 0, 7); c.fill(); },
     zip: function (c) { c.beginPath(); c.rect(2.5, 1, 7, 10); c.moveTo(6, 1); c.lineTo(6, 2); c.moveTo(6, 3); c.lineTo(6, 4); c.moveTo(6, 5); c.lineTo(6, 6); c.stroke(); c.strokeRect(5, 7, 2, 2); },
     code: function (c) { c.beginPath(); c.moveTo(4.4, 3.4); c.lineTo(1.6, 6); c.lineTo(4.4, 8.6); c.moveTo(7.6, 3.4); c.lineTo(10.4, 6); c.lineTo(7.6, 8.6); c.stroke(); },
+    video: function (c) { c.beginPath(); c.rect(1.3, 2.3, 9.4, 7.4); c.stroke(); c.beginPath(); c.moveTo(4.9, 4.4); c.lineTo(8, 6); c.lineTo(4.9, 7.6); c.closePath(); c.fill(); },
+    link: function (c) {
+      // dois elos (pílulas) encaixados, na diagonal
+      function pill(x) { c.moveTo(x + 1.7, -1.7); c.lineTo(x + 3.9, -1.7); c.arc(x + 3.9, 0, 1.7, -Math.PI / 2, Math.PI / 2); c.lineTo(x + 1.7, 1.7); c.arc(x + 1.7, 0, 1.7, Math.PI / 2, Math.PI * 1.5); }
+      c.save(); c.translate(6, 6); c.rotate(-Math.PI / 4); c.beginPath(); pill(-5.2); pill(-0.4); c.stroke(); c.restore();
+    },
     clip: function (c) { c.beginPath(); c.rect(2.3, 2.2, 7.4, 9); c.moveTo(4.6, 6); c.lineTo(7.4, 6); c.moveTo(4.6, 8); c.lineTo(7.4, 8); c.stroke(); c.fillRect(4.2, 1, 3.6, 2.2); }
   };
   var KINDS = Object.keys(ICONS), sprites = {};
@@ -168,10 +174,10 @@
     requestAnimationFrame(frame);
   }
   var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  field($("#field"), { max: 240, density: 4200, size: 12, inner: 0.42, rx: 0.62, ry: 0.62, cy: 0.5, speed: 0.025, alpha: dark ? 0.9 : 0.85,
+  field($("#field"), { max: 240, density: 4200, size: 15, inner: 0.42, rx: 0.62, ry: 0.62, cy: 0.5, speed: 0.025, alpha: dark ? 0.9 : 0.85,
     colors: dark ? ["#5b8fff", "#8fb4ff", "#2f6fea", "#3a3f4a"] : ["#1c5fe0", "#4ea6ff", "#2166f5", "#9db7ec", "#c4cbd6"] });
-  field($("#grow-field"), { max: 200, density: 4800, size: 12, inner: 0.25, rx: 0.7, ry: 0.75, cy: 0.5, speed: 0.02, alpha: 0.75, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
-  field($("#night-field"), { max: 170, density: 4600, size: 12, inner: 0.3, rx: 0.65, ry: 0.9, cy: 0.15, speed: 0.02, alpha: 0.8, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
+  field($("#grow-field"), { max: 200, density: 4800, size: 15, inner: 0.25, rx: 0.7, ry: 0.75, cy: 0.5, speed: 0.02, alpha: 0.75, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
+  field($("#night-field"), { max: 170, density: 4600, size: 15, inner: 0.3, rx: 0.65, ry: 0.9, cy: 0.15, speed: 0.02, alpha: 0.8, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
 
   // ---------- rolagem: cartão que cresce e palavras que acendem ----------
   var card = $("#grow-card"), growSec = card && card.closest(".grow");
