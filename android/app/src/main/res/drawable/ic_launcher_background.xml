@@ -7,7 +7,7 @@
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear"
                 android:startX="27" android:startY="0" android:endX="81" android:endY="108"
-                android:startColor="#45A8FF" android:centerColor="#2166F5" android:endColor="#4A40DB" />
+                android:startColor="#45A8FF" android:centerColor="#2166F5" android:endColor="#1648C4" />
         </aapt:attr>
     </path>
     <!-- brilho no alto, como no ícone do Mac -->

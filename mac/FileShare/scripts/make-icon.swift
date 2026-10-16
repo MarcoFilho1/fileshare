@@ -46,7 +46,7 @@ func drawIcon(size: CGFloat) -> NSBitmapImageRep {
     ctx.fillPath()
     ctx.restoreGState()
 
-    // fundo: azul do sistema puxando para o índigo
+    // fundo: do azul claro ao azul profundo, sem roxo
     ctx.saveGState()
     ctx.addPath(shape)
     ctx.clip()
@@ -54,7 +54,7 @@ func drawIcon(size: CGFloat) -> NSBitmapImageRep {
     let gradient = CGGradient(colorsSpace: space, colors: [
         CGColor(srgbRed: 0.27, green: 0.66, blue: 1.00, alpha: 1),
         CGColor(srgbRed: 0.13, green: 0.40, blue: 0.96, alpha: 1),
-        CGColor(srgbRed: 0.29, green: 0.25, blue: 0.86, alpha: 1),
+        CGColor(srgbRed: 0.09, green: 0.28, blue: 0.77, alpha: 1), // azul profundo (sem violeta)
     ] as CFArray, locations: [0, 0.55, 1])!
     ctx.drawLinearGradient(gradient, start: CGPoint(x: 260, y: 924), end: CGPoint(x: 764, y: 100),
                            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])

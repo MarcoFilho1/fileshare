@@ -171,7 +171,7 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
   border-radius: 3.2cqw;
   background:
     radial-gradient(120% 90% at 15% 10%, rgba(255, 255, 255, 0.35), transparent 55%),
-    linear-gradient(135deg, #4ea6ff 0%, #2166f5 45%, #4a40db 100%);
+    linear-gradient(135deg, #4ea6ff 0%, #2166f5 45%, #1648c4 100%);
 }
 .mac {
   position: absolute; left: 7%; top: 0; width: 74%; aspect-ratio: 16 / 10.2;
@@ -183,8 +183,8 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
   background:
     radial-gradient(60% 70% at 20% 80%, #f2a65a 0%, transparent 60%),
     radial-gradient(70% 70% at 85% 25%, #6b8cff 0%, transparent 60%),
-    radial-gradient(80% 80% at 50% 50%, #c86fd1 0%, transparent 70%),
-    linear-gradient(160deg, #3c5bd6, #e58f6e);
+    radial-gradient(80% 80% at 50% 50%, #4f9dff 0%, transparent 70%),
+    linear-gradient(160deg, #2b5fd9, #6ea8f0 60%, #f0a46c);
 }
 .menubar {
   position: absolute; inset: 0 0 auto; height: 3.1cqw; padding: 0 1.4cqw;
@@ -221,11 +221,11 @@ html:not(.en) [lang="en"], html.en [lang="pt"] { display: none !important; }
 }
 
 /* a foto (desenhada em CSS): pôr do sol sobre montanhas */
-.photo { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffcf7a 0%, #ff8f6b 38%, #c9579b 70%, #5b4bb7 100%); }
+.photo { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffd27e 0%, #ffa36b 34%, #6f9fe6 68%, #2b5fd9 100%); }
 .photo .sun { position: absolute; left: 30%; top: 30%; width: 18%; aspect-ratio: 1; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 3cqw 1cqw rgba(255, 236, 170, 0.6); }
-.photo .m1 { position: absolute; inset: 45% 0 0 0; background: #3b2f6e; clip-path: polygon(0 60%, 18% 20%, 32% 48%, 50% 6%, 68% 52%, 82% 26%, 100% 58%, 100% 100%, 0 100%); }
-.photo .m2 { position: absolute; inset: 62% 0 0 0; background: #25204a; clip-path: polygon(0 40%, 22% 10%, 44% 46%, 64% 18%, 86% 50%, 100% 30%, 100% 100%, 0 100%); }
-.photo .sea { position: absolute; inset: 86% 0 0 0; background: linear-gradient(90deg, #1b1840, #2e2a66, #1b1840); }
+.photo .m1 { position: absolute; inset: 45% 0 0 0; background: #24407f; clip-path: polygon(0 60%, 18% 20%, 32% 48%, 50% 6%, 68% 52%, 82% 26%, 100% 58%, 100% 100%, 0 100%); }
+.photo .m2 { position: absolute; inset: 62% 0 0 0; background: #172b5a; clip-path: polygon(0 40%, 22% 10%, 44% 46%, 64% 18%, 86% 50%, 100% 30%, 100% 100%, 0 100%); }
+.photo .sea { position: absolute; inset: 86% 0 0 0; background: linear-gradient(90deg, #0f1f45, #1c3670, #0f1f45); }
 
 .keycap { position: absolute; left: 44%; top: 62%; display: flex; gap: 0.5cqw; opacity: 0; animation: key 10s var(--ease) infinite; }
 .keycap kbd {
@@ -400,7 +400,7 @@ section.sec { padding: 140px 0 0; }
 .mini-mac { position: absolute; right: 3%; top: 22%; width: 47%; aspect-ratio: 16 / 10.4; background: #0d0d0f; border-radius: 2cqw; padding: 0.8cqw;
   box-shadow: 0 3cqw 6cqw -2cqw rgba(16, 24, 48, 0.45); }
 .mm-screen { position: relative; height: 100%; border-radius: 1.3cqw; overflow: hidden;
-  background: radial-gradient(70% 70% at 80% 20%, #6b8cff, transparent 60%), radial-gradient(70% 80% at 20% 90%, #f2a65a, transparent 60%), linear-gradient(160deg, #3c5bd6, #c86fd1 60%, #e58f6e); }
+  background: radial-gradient(70% 70% at 80% 20%, #6b8cff, transparent 60%), radial-gradient(70% 80% at 20% 90%, #f2a65a, transparent 60%), linear-gradient(160deg, #2b5fd9, #4f9dff 60%, #e58f6e); }
 .mm-bar { position: absolute; inset: 0 0 auto; height: 2.6cqw; display: flex; align-items: center; gap: 0.9cqw; padding: 0 1.2cqw; background: rgba(255, 255, 255, 0.28); }
 .mm-bar i { width: 2.2cqw; height: 0.45cqw; border-radius: 1cqw; background: rgba(255, 255, 255, 0.85); display: block; }
 .mm-bar i:first-child { width: 0.9cqw; height: 0.9cqw; }
@@ -409,7 +409,7 @@ section.sec { padding: 140px 0 0; }
 .art-share .mac-notif { position: absolute; right: 1.2cqw; top: 3.6cqw; width: 36cqw; padding: 1.4cqw; border-radius: 1.8cqw; display: flex; gap: 1.2cqw; align-items: center;
   background: rgba(250, 250, 252, 0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #1d1d1f;
   box-shadow: 0 1.4cqw 3cqw -1cqw rgba(0, 0, 0, 0.35); opacity: 0; }
-.art-share .mac-notif .ic { width: 4.2cqw; height: 4.2cqw; border-radius: 1.1cqw; flex: none; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #4ea6ff, #2166f5 50%, #4a40db); }
+.art-share .mac-notif .ic { width: 4.2cqw; height: 4.2cqw; border-radius: 1.1cqw; flex: none; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #4ea6ff, #2166f5 50%, #1648c4); }
 .art-share .mac-notif .ic svg { width: 2.4cqw; height: 2.4cqw; }
 .art-share .mac-notif b { display: block; font: 650 1.55cqw/1.25 var(--sans); }
 .art-share .mac-notif small { display: block; font: 1.3cqw/1.3 var(--sans); color: #6e6e73; }
@@ -463,7 +463,7 @@ section.sec { padding: 140px 0 0; }
   border-radius: 3.2cqw;
   background:
     radial-gradient(120% 90% at 15% 10%, rgba(255, 255, 255, 0.35), transparent 55%),
-    linear-gradient(135deg, #4ea6ff 0%, #2166f5 45%, #4a40db 100%);
+    linear-gradient(135deg, #4ea6ff 0%, #2166f5 45%, #1648c4 100%);
 }
 .dragscene .mac {
   position: absolute; left: 7%; top: 0; width: 74%; aspect-ratio: 16 / 10.2;
@@ -475,8 +475,8 @@ section.sec { padding: 140px 0 0; }
   background:
     radial-gradient(60% 70% at 20% 80%, #f2a65a 0%, transparent 60%),
     radial-gradient(70% 70% at 85% 25%, #6b8cff 0%, transparent 60%),
-    radial-gradient(80% 80% at 50% 50%, #c86fd1 0%, transparent 70%),
-    linear-gradient(160deg, #3c5bd6, #e58f6e);
+    radial-gradient(80% 80% at 50% 50%, #4f9dff 0%, transparent 70%),
+    linear-gradient(160deg, #2b5fd9, #6ea8f0 60%, #f0a46c);
 }
 .dragscene .menubar {
   position: absolute; inset: 0 0 auto; height: 3.1cqw; padding: 0 1.4cqw;
@@ -563,7 +563,7 @@ section.sec { padding: 140px 0 0; }
   background: rgba(40, 41, 46, 0.96); display: flex; align-items: center; gap: 0.8cqw; text-align: left;
   box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, 0.4); opacity: 0; animation: d-notif 9s var(--ease) infinite;
 }
-.dragscene .notif .c { width: 2.2cqw; height: 2.2cqw; border-radius: 0.6cqw; background: linear-gradient(135deg, #4ea6ff, #2166f5 50%, #4a40db); display: grid; place-items: center; flex: none; }
+.dragscene .notif .c { width: 2.2cqw; height: 2.2cqw; border-radius: 0.6cqw; background: linear-gradient(135deg, #4ea6ff, #2166f5 50%, #1648c4); display: grid; place-items: center; flex: none; }
 .dragscene .notif .c svg { width: 1.3cqw; height: 1.3cqw; }
 .dragscene .notif b { display: block; font: 650 0.95cqw/1.2 var(--sans); }
 .dragscene .notif small { display: block; font: 0.8cqw/1.2 var(--sans); color: #b5b8c2; }
@@ -614,7 +614,7 @@ section.sec { padding: 140px 0 0; }
 @media (max-width: 900px) { .bento { grid-template-columns: 1fr 1fr; } .c-4, .c-3 { grid-column: span 2; } .c-2 { grid-column: span 1; } }
 @media (max-width: 600px) { .bento { grid-template-columns: 1fr; } .c-4, .c-3, .c-2 { grid-column: span 1; } .cell { min-height: 0; padding: 26px; } }
 
-.cell.accent { background: linear-gradient(140deg, #3f8cff, #2166f5 50%, #4a40db); color: #fff; border-color: transparent; }
+.cell.accent { background: linear-gradient(140deg, #3f8cff, #2166f5 50%, #1648c4); color: #fff; border-color: transparent; }
 .cell.accent p { color: rgba(255, 255, 255, 0.85); }
 .cell.dark { background: #0f1012; color: #f3f3f0; border-color: transparent; }
 .cell.dark p { color: #a2a5ad; }
@@ -626,7 +626,7 @@ section.sec { padding: 140px 0 0; }
 .dev b { display: block; font: 600 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .dev .clip { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: 15px/1.35 var(--sans); }
 .dev .clip.img { display: flex; align-items: center; gap: 10px; }
-.dev .clip.img i { width: 34px; height: 26px; border-radius: 6px; background: linear-gradient(135deg, #f2a65a, #c86fd1 60%, #6b8cff); display: block; flex: none; }
+.dev .clip.img i { width: 34px; height: 26px; border-radius: 6px; background: linear-gradient(135deg, #f2a65a, #6ea8f0 60%, #2b5fd9); display: block; flex: none; }
 .wire { position: relative; height: 2px; margin: 0 8px; background: repeating-linear-gradient(90deg, var(--line) 0 6px, transparent 6px 12px); }
 .wire i { position: absolute; top: -5px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px var(--accent-soft); animation: wire 3.2s var(--ease) infinite; }
 @keyframes wire { 0% { left: -6px; } 50% { left: calc(100% - 6px); } 100% { left: -6px; } }
