@@ -102,8 +102,8 @@ private struct PairingView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Step(number: 1, text: L10n.t("On the tablet, open the Camera and point it at the code.",
                                                  "No tablet, abra a Câmera e aponte para o código."))
-                    Step(number: 2, text: L10n.t("Tap the link and open it with FileShare.",
-                                                 "Toque no link e abra com o FileShare."))
+                    Step(number: 2, text: L10n.t("Tap the link and then Connect. No FileShare on the tablet yet? The page shows how to install it.",
+                                                 "Toque no link e depois em Conectar. Ainda não tem o FileShare no tablet? A página mostra como instalar."))
                     Step(number: 3, text: L10n.t("That's it: from then on they find each other on Wi-Fi.",
                                                  "Pronto: depois disso eles se acham sozinhos no Wi-Fi."))
                 }
@@ -123,7 +123,7 @@ private struct PairingView: View {
                 .padding(.top, 18)
 
                 Link(L10n.t("Get FileShare for Android", "Baixar o FileShare para Android"),
-                     destination: URL(string: "https://github.com/MarcoFilho1/fileshare/releases/latest")!)
+                     destination: URL(string: "https://marcofilho1.github.io/fileshare/")!)
                     .font(.system(size: 12))
                     .padding(.top, 12)
             }
