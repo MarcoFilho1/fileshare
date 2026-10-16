@@ -223,23 +223,67 @@
 
       <div class="bento">
         <article class="cell c-4 reveal">
-          <h3><span lang="pt">Copie aqui, cole lá</span><span lang="en">Copy here, paste there</span></h3>
-          <p><span lang="pt">Texto e imagens, inclusive prints com ⌘⇧4, vão direto para a área de transferência do outro aparelho. Sem botão, sem app aberto.</span><span lang="en">Text and images, ⌘⇧4 screenshots included, go straight to the other device's clipboard. No button, no app to open.</span></p>
-          <div class="art">
-            <div class="pair-art">
-              <div class="dev"><b>Mac</b><div class="clip">“<span lang="pt">Reunião às 15h, sala 2</span><span lang="en">Meeting at 3pm, room 2</span>”</div></div>
-              <div class="wire"><i></i></div>
-              <div class="dev"><b>Tablet</b><div class="clip img"><i></i><span lang="pt">Imagem colada</span><span lang="en">Image pasted</span></div></div>
+          <h3><span lang="pt">Arraste até o ⇄</span><span lang="en">Drag to ⇄</span></h3>
+          <p><span lang="pt">Chegou perto do ícone na barra de menu, o painel aparece. Soltou o arquivo, ele chega no tablet, mesmo que ele esteja dormindo.</span><span lang="en">Get close to the menu bar icon and the panel appears. Let go of the file and it lands on the tablet, even if it's asleep.</span></p>
+          <div class="art" aria-hidden="true">
+          <div class="scene dragscene">
+            <div class="slab"></div>
+            <div class="mac">
+              <div class="screen">
+                <div class="menubar">
+                  <div class="dots"><i></i><i></i><i></i><i></i></div>
+                  <div class="right"><i></i><span class="tray"><svg><use href="#i-arrows"/></svg></span><i></i><i></i></div>
+                </div>
+                <div class="window">
+                  <div class="lights"><i></i><i></i><i></i></div>
+                  <div class="files">
+                    <div class="file"><span class="doc"></span>Aula 7.pdf</div>
+                    <div class="file"><span class="doc" style="--c:#2bb673"></span>notas.csv</div>
+                    <div class="file"><span class="doc" style="--c:#7b5cf0"></span>slides.key</div>
+                    <div class="file"><span class="doc" style="--c:#f2a93b"></span>foto.png</div>
+                    <div class="file"><span class="doc" style="--c:#13a9bd"></span>resumo.txt</div>
+                  </div>
+                </div>
+                <div class="flyer"></div>
+                <div class="drop">
+                  <div class="head">
+                    <span class="c"><svg style="color:#fff"><use href="#i-tablet"/></svg></span>
+                    <span><b>Send to Tablet</b><small>Galaxy Tab S9 FE</small></span>
+                  </div>
+                  <div class="tile">
+                    <div class="lit"></div>
+                    <div class="stagev s0"><div><span class="ring"><svg style="color:#666"><use href="#i-down"/></svg></span>Drop files here</div></div>
+                    <div class="stagev s1"><div><span class="ring"><svg style="color:#2166f5"><use href="#i-down"/></svg></span>Release to send</div></div>
+                    <div class="stagev s2"><div>Aula 7.pdf<div class="bar"><i></i></div></div></div>
+                    <div class="stagev s3"><div><span class="ok"><svg style="color:#fff"><use href="#i-check"/></svg></span>Sent to Galaxy Tab S9 FE</div></div>
+                  </div>
+                </div>
+              </div>
             </div>
+            <div class="tablet">
+              <div class="tscreen">
+                <div class="notif">
+                  <span class="c"><svg style="color:#fff"><use href="#i-arrows"/></svg></span>
+                  <span><b><span lang="pt">PDF recebido do MacBook</span><span lang="en">PDF from MacBook</span></b><small><span lang="pt">Aula 7.pdf · toque para abrir</span><span lang="en">Aula 7.pdf · tap to open</span></small></span>
+                </div>
+                <div class="tapp">
+                  <img src="icon.png" alt="">
+                  <b>FileShare</b>
+                  <div class="card"><span class="c"></span><span><b>MacBook Air</b><small><i></i><span lang="pt">Conectado</span><span lang="en">Connected</span></small></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
           </div>
         </article>
         <article class="cell c-2 accent reveal" style="--d:.08s">
-          <h3><span lang="pt">Arraste até o ⇄</span><span lang="en">Drag to ⇄</span></h3>
-          <p><span lang="pt">Chegou perto do ícone, o painel aparece. Soltou, foi.</span><span lang="en">Get close to the icon and the panel appears. Let go, and it's sent.</span></p>
+          <h3><span lang="pt">Copie aqui, cole lá</span><span lang="en">Copy here, paste there</span></h3>
+          <p><span lang="pt">Texto e imagens, inclusive prints com ⌘⇧4, vão direto para a área de transferência do outro aparelho. Sem botão.</span><span lang="en">Text and images, ⌘⇧4 screenshots included, go straight to the other device's clipboard. No button.</span></p>
           <div class="art">
-            <div class="mini-drop">
-              <div class="head"><i></i>Send to Tablet</div>
-              <div class="t"><div><span class="dot"><svg style="color:#fff"><use href="#i-down"/></svg></span><span lang="pt">Solte para enviar</span><span lang="en">Release to send</span></div></div>
+            <div class="pair-art stack">
+              <div class="dev"><b>Mac</b><div class="clip">“<span lang="pt">Reunião às 15h, sala 2</span><span lang="en">Meeting at 3pm, room 2</span>”</div></div>
+              <div class="wire"><i></i></div>
+              <div class="dev"><b>Tablet</b><div class="clip img"><i></i><span lang="pt">Imagem colada</span><span lang="en">Image pasted</span></div></div>
             </div>
           </div>
         </article>

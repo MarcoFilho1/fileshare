@@ -25,12 +25,13 @@
     items.forEach(function (el) { io.observe(el); });
   }
 
-  // a animação do Mac e do tablet só roda quando está visível
+  // as animações dos aparelhos só rodam quando estão visíveis
   var scene = document.getElementById("scene");
-  if (scene && "IntersectionObserver" in window) {
-    new IntersectionObserver(function (entries) {
-      scene.classList.toggle("paused", !entries[0].isIntersecting);
-    }).observe(scene);
+  if ("IntersectionObserver" in window) {
+    var pauser = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { e.target.classList.toggle("paused", !e.isIntersecting); });
+    });
+    document.querySelectorAll(".scene").forEach(function (el) { pauser.observe(el); });
   }
 
   // no Android, o download do Android vem primeiro e em destaque
