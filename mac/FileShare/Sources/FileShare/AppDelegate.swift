@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Só aparece quando os avisos estão desligados nos Ajustes (o macOS não pergunta duas vezes).
     private let notificationsItem = NSMenuItem(title: "Ativar notificações de arquivos…", action: #selector(openNotificationSettings), keyEquivalent: "")
     private let pairingWindow = PairingWindow()
+    private let dropPanel = DropPanelController()
+    private let dragWatcher = FileDragWatcher()
 
     private var server: TabletServer!
     private var watcher: PasteboardWatcher!
@@ -27,6 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setUpMenu()
+        #if DEBUG
+        if let state = ProcessInfo.processInfo.environment["FILESHARE_DEMO_PANEL"] { return demoPanel(state) }
+        #endif
 
         server = TabletServer(
             macId: PairingStore.macId,
@@ -38,6 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setUpNotifications()
         let key = PairingStore.loadKey()
         forgetItem.isEnabled = key != nil
+        dropPanel.model.paired = key != nil
+        if let name = UserDefaults.standard.string(forKey: "tabletName") { dropPanel.model.tabletName = name }
         server.setPairingKey(key)
         enableLoginItemOnFirstInstall()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
@@ -118,26 +125,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         server.sendFiles(urls)
     }
 
-    /// Arrastar arquivos até o ícone ⇄ na barra de menu.
+    /// Arrastar arquivos até o ícone ⇄: ao chegar perto, o painel "Send to Tablet" sai do ícone.
     private func setUpDrop() {
+        dropPanel.onDrop = { [weak self] urls in self?.server.sendFiles(urls) }
+        dropPanel.onVisibleChange = { [weak self] on in self?.statusItem.button?.highlight(on) }
+        dragWatcher.onMove = { [weak self] point in
+            guard let self, let icon = iconFrame else { return }
+            dropPanel.dragMoved(to: point, iconFrame: icon)
+        }
+        dragWatcher.onEnd = { [weak self] in
+            guard let self, dropPanel.model.batch.isEmpty else { return }
+            dropPanel.hide(after: 0.3)
+        }
+        dragWatcher.start()
         guard let window = statusItem.button?.window else { return }
         window.registerForDraggedTypes([.fileURL])
         window.delegate = self
+    }
+
+    /// Onde o ícone ⇄ está na tela.
+    fileprivate var iconFrame: NSRect? {
+        guard let button = statusItem.button, let window = button.window else { return nil }
+        return window.convertToScreen(button.convert(button.bounds, to: nil))
     }
 
     fileprivate func droppedFiles(_ info: NSDraggingInfo) -> [URL] {
         info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
     }
 
-    fileprivate func dropHighlight(_ on: Bool) {
-        statusItem.button?.highlight(on)
-    }
-
-    fileprivate func sendDropped(_ urls: [URL]) {
-        server.sendFiles(urls)
-    }
-
     private func fileEvent(_ event: TabletServer.FileEvent) {
+        dropPanel.handle(event)
         switch event {
         case .queued(let name): show(last: "\(name) vai quando o tablet acordar")
         case .progress(let name, let fraction):
@@ -200,7 +217,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .rejected: statusLine.title = "Recusei um aparelho sem a chave do pareamento"
         case .failed(let reason): statusLine.title = "Erro de rede: \(reason)"
         }
-        if case .connected = state { connected = true } else { connected = false }
+        if case .connected(let name) = state {
+            connected = true
+            dropPanel.model.tabletName = name
+            UserDefaults.standard.set(name, forKey: "tabletName") // o painel mostra o nome mesmo com o tablet dormindo
+        } else {
+            connected = false
+        }
+        dropPanel.model.connected = connected
         updateIcon()
     }
 
@@ -211,6 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return show(last: "Não consegui guardar a chave no Keychain")
         }
         forgetItem.isEnabled = true
+        dropPanel.model.paired = true
         server.setPairingKey(key)
         pairingWindow.show(link: PairingLink.url(macId: PairingStore.macId, name: Host.current().localizedName ?? "Mac", key: key))
     }
@@ -218,6 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func forget() {
         PairingStore.deleteKey()
         forgetItem.isEnabled = false
+        dropPanel.model.paired = false
         server.setPairingKey(nil)
     }
 
@@ -271,6 +297,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+#if DEBUG
+extension AppDelegate {
+    /// Só na versão de desenvolvimento: mostra o painel num estado fixo, para conferir o visual.
+    private func demoPanel(_ state: String) {
+        let model = dropPanel.model
+        dropPanel.keepOpen = true
+        if ProcessInfo.processInfo.environment["FILESHARE_DEMO_DARK"] != nil { NSApp.appearance = NSAppearance(named: .darkAqua) }
+        model.paired = state != "unpaired"
+        model.connected = state != "asleep"
+        model.tabletName = "Galaxy Tab S9 FE"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
+            guard let icon = iconFrame else { return }
+            dropPanel.show(below: icon)
+            statusItem.button?.highlight(true)
+            let files = [URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app/Contents/Info.plist")]
+            switch state {
+            case "targeted": dropPanel.setTargeted(true)
+            case "sending":
+                model.begin(files)
+                model.handle(.progress(name: "Info.plist", fraction: 0.62))
+            case "sent":
+                model.begin(files)
+                model.handle(.delivered(name: "Info.plist"))
+            case "queued":
+                model.begin(files)
+                model.handle(.queued(name: "Info.plist"))
+            default: break
+            }
+        }
+    }
+}
+#endif
+
 extension AppDelegate: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse) async {
@@ -295,23 +354,23 @@ extension AppDelegate: NSMenuDelegate {
     }
 }
 
-/// O ícone ⇄ fica numa janela própria da barra de menu: ela recebe os arquivos arrastados.
+/// O ícone ⇄ fica numa janela própria da barra de menu: ela também recebe os arquivos arrastados.
 extension AppDelegate: NSWindowDelegate, NSDraggingDestination {
     func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard !droppedFiles(sender).isEmpty else { return [] }
-        dropHighlight(true)
+        guard dropPanel.model.paired, !dropPanel.model.isTransferring, !droppedFiles(sender).isEmpty else { return [] }
+        if let icon = iconFrame { dropPanel.show(below: icon) }
+        dropPanel.setTargeted(true)
         return .copy
     }
 
     func draggingExited(_ sender: NSDraggingInfo?) {
-        dropHighlight(false)
+        dropPanel.setTargeted(false)
     }
 
     func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        dropHighlight(false)
         let urls = droppedFiles(sender)
         guard !urls.isEmpty else { return false }
-        sendDropped(urls)
+        dropPanel.accept(urls)
         return true
     }
 }

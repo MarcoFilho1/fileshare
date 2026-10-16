@@ -54,6 +54,18 @@ scripts/test.sh                 # testes (funciona só com as Command Line Tools
 
 **Parear (uma vez):** ícone ⇄ → **Parear tablet…** → aponte a câmera do tablet para o QR code e toque no link. Depois disso, com os dois no mesmo Wi-Fi, o tablet acha o Mac sozinho: copiou no Mac (inclusive print com ⌘⇧4 e imagens copiadas no Finder), já dá para colar no tablet; o que vem do tablet cai na área de transferência do Mac. Cópias de gerenciadores de senha são ignoradas.
 
+## Arquivos
+
+- **Tablet → Mac:** em qualquer app, **Compartilhar → FileShare** (ou o atalho com o nome do Mac). O arquivo cai em `~/Downloads/FileShare`.
+- **Mac → tablet**, de três jeitos:
+  - **Arrastar até o ícone ⇄:** quando um arquivo arrastado chega perto do ícone, o painel **Send to Tablet** sai de dentro dele, no mesmo vidro da Central de Controle. É só soltar no painel; ele mostra o progresso e confirma a entrega. Se o tablet estiver dormindo, o arquivo espera e vai quando ele acordar.
+  - Ícone ⇄ → **Enviar arquivo ao tablet…**
+  - No Finder, botão direito → **Ações Rápidas** (ou **Serviços**) → **Enviar ao tablet**.
+
+  No tablet, os arquivos ficam em `Download/FileShare`, e a notificação abre o arquivo no app que você escolher. Limite de 100 MB por arquivo.
+
+Para perceber o arrasto chegando perto, o app observa só os movimentos do mouse com o botão apertado. Ele não lê o teclado e não precisa de permissão especial.
+
 ## Bateria
 
 O macOS não avisa os apps quando algo é copiado (no Windows e no Android há esse aviso). Por isso o FileShare do Mac, como todo gerenciador de área de transferência para Mac (Maccy, Raycast, Paste…), consulta a cada 0,5 s um **contador** do sistema que muda a cada cópia. É a leitura de um único número; o conteúdo só é lido quando o contador muda, ou seja, quando você copiou algo.
