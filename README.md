@@ -1,6 +1,6 @@
 # FileShare
 
-Área de transferência compartilhada entre **macOS** e **Android**: copie um texto ou uma imagem em um aparelho e cole no outro, como o Phone Link faz no Windows.
+Área de transferência compartilhada entre **macOS** e **Android**: copie um texto ou uma imagem em um aparelho e cole no outro, e mande arquivos nos dois sentidos, como o Phone Link faz no Windows.
 
 Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI 8.5).
 
@@ -12,6 +12,7 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | v1.0.0 | Tablet → Mac automático: copiou, já está no Mac |
 | **v1.1.0** | App de barra de menu no Mac: Mac → tablet automático |
 | **v2.0.0** | Sem cabo: conexão pelo Wi-Fi, pareamento por QR code e tudo criptografado |
+| **v2.1.0** | Uso diário: abre sozinho com o sistema, entrega a cópia quando o tablet acorda, arquivos nos dois sentidos e o painel **Send to Tablet** |
 
 Veja o [plano](docs/plano.md).
 
@@ -21,6 +22,8 @@ Veja o [plano](docs/plano.md).
 - Um tablet pareado por vez: parear de novo substitui o anterior.
 - O Android só deixa um app comum ler a área de transferência quando ele está em primeiro plano. Por isso o botão abre uma tela invisível por um instante.
 - Imagens copiadas no Samsung Notes chegam como JPG (é o formato que o próprio app entrega).
+- Depois de atualizar o app do Mac, o macOS pede de novo acesso às Chaves: clique em **Sempre permitir**.
+- Os avisos de arquivo recebido no Mac só aparecem com as notificações do FileShare ligadas (o menu ⇄ mostra **Ativar notificações de arquivos…** quando estão desligadas).
 
 ## Como rodar
 
@@ -65,6 +68,11 @@ scripts/test.sh                 # testes (funciona só com as Command Line Tools
   No tablet, os arquivos ficam em `Download/FileShare`, e a notificação abre o arquivo no app que você escolher. Limite de 100 MB por arquivo.
 
 Para perceber o arrasto chegando perto, o app observa só os movimentos do mouse com o botão apertado. Ele não lê o teclado e não precisa de permissão especial.
+
+## Uso diário
+
+- **Abre sozinho:** o app do Mac abre junto com o sistema (ícone ⇄ → **Abrir ao iniciar o Mac**); o serviço do tablet volta sozinho depois de reiniciar ou atualizar.
+- **Tablet dormindo:** o Mac guarda a última cópia por 10 minutos e entrega quando o tablet acorda e reconecta; os arquivos esperam na fila do mesmo jeito.
 
 ## Bateria
 

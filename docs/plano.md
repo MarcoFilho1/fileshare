@@ -19,10 +19,21 @@ Descobertas:
 
 ## Versões
 
-- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia.
+- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia · **v2.1.0** uso diário (etapa D).
 
-## Próximas etapas (D: uso diário)
+## Etapa D: uso diário (v2.1.0)
 
-1. App do Mac abre junto com o sistema; serviço do tablet volta sozinho após reiniciar ou atualizar.
-2. Conexão com o tablet em repouso (Doze/economia de bateria do One UI) e guia de exceções de bateria.
-3. Opção "Mac" no menu Compartilhar e na seleção inteligente da S Pen.
+1. ✅ App do Mac abre junto com o sistema; serviço do tablet volta sozinho após reiniciar, atualizar ou ligar a acessibilidade.
+2. ✅ Tablet em repouso: o Mac guarda a última cópia por 10 min e entrega quando o tablet acorda (reconecta ao ligar a tela).
+3. ✅ Arquivos tablet → Mac pelo menu Compartilhar (com atalho direto do Mac), salvos em `~/Downloads/FileShare`.
+4. ✅ Arquivos Mac → tablet: arrastar até o ⇄ (painel **Send to Tablet**, abre ao aproximar), menu e Finder; salvos em `Download/FileShare`.
+5. ✅ Folga no timer da área de transferência do Mac (bateria).
+
+## Próximas etapas
+
+- T4: serviço do tablet durante uma noite inteira; colar no GoodNotes.
+- Assinatura estável do app do Mac, para não pedir acesso às Chaves a cada atualização, e leitura das Chaves fora da thread principal.
+- Tablet → Mac com o Mac fora do alcance: hoje só mostra um aviso; guardar e mandar depois.
+- Reconexão lenta do tablet logo depois de reinstalar o app.
+- Opção "Mac" na seleção inteligente da S Pen e guia de exceções de bateria do One UI.
+- Pesquisa: Quick Share no Mac (NearDrop).
