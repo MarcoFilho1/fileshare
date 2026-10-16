@@ -14,6 +14,7 @@ Feito e testado com um Mac (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI
 | **v2.0.0** | Sem cabo: conexão pelo Wi-Fi, pareamento por QR code e tudo criptografado |
 | **v2.1.0** | Uso diário: abre sozinho com o sistema, entrega a cópia quando o tablet acorda, arquivos nos dois sentidos e o painel **Send to Tablet** |
 | **v2.2.0** | Ícone e interface nova: painel no estilo da Central de Controle no Mac, tela inicial com a configuração e a permissão de acessibilidade explicada no tablet |
+| **v2.3.0** | Para novos usuários: site com downloads, `FileShare.dmg` e `FileShare.apk` nas releases, e QR que abre o app ou ensina a instalar |
 
 Veja o [plano](docs/plano.md).
 
@@ -26,7 +27,15 @@ Veja o [plano](docs/plano.md).
 - Depois de atualizar o app do Mac, o macOS pede de novo acesso às Chaves: clique em **Sempre permitir**.
 - Os avisos de arquivo recebido no Mac só aparecem com as notificações do FileShare ligadas (o menu ⇄ mostra **Ativar notificações de arquivos…** quando estão desligadas).
 
-## Como rodar
+## Instalar
+
+Baixe pelo site: **https://marcofilho1.github.io/fileshare/**. Os mesmos arquivos estão em [Releases](https://github.com/MarcoFilho1/fileshare/releases/latest).
+
+1. **Mac:** abra o `FileShare.dmg` e arraste o app para Aplicativos. Como o app ainda não é notarizado pela Apple, na primeira vez o macOS avisa que não conseguiu verificá-lo. Clique em OK e vá em **Ajustes do Sistema → Privacidade e Segurança → Abrir mesmo assim**.
+2. O app do Mac abre mostrando um **QR code**. Leia com a câmera do tablet e toque no link.
+3. **Tablet:** a página do link abre o FileShare e pareia. Sem o app instalado, ela mostra como baixar o `FileShare.apk`. Depois de instalar, é só voltar à página e tocar em **Conectar**, sem ler o QR de novo. A chave do pareamento vai depois do `#` no link: o navegador nunca a envia ao site, e a página não carrega nada de fora.
+
+## Compilar a partir do código
 
 ### Pré-requisitos (macOS)
 
@@ -44,6 +53,8 @@ cd android
 echo "sdk.dir=$(brew --prefix)/share/android-commandlinetools" > local.properties
 JAVA_HOME=$(brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home ./gradlew installDebug
 ```
+
+Sem a chave de lançamento, o build usa a chave de teste do Android. Os arquivos da release são gerados por `scripts/package.sh` (`dist/FileShare.dmg` e `dist/FileShare.apk`), que assina o APK com a chave definitiva guardada fora do repositório.
 
 Abra o app **FileShare** uma vez no tablet para iniciar o serviço. Depois adicione o botão **Enviar ao Mac** nas Configurações rápidas (deslize o topo da tela para baixo → lápis → arraste o botão).
 
