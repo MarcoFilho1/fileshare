@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- O atalho publicado pelo ShareTargets com esta categoria abre a ShareActivity. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="dev.marcofilho.fileshare.ShareActivity">
+        <data android:mimeType="*/*" />
+        <category android:name="dev.marcofilho.fileshare.category.MAC" />
+    </share-target>
+</shortcuts>

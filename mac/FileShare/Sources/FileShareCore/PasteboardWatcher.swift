@@ -16,9 +16,12 @@ public final class PasteboardWatcher {
 
     public func start(interval: TimeInterval = 0.5) {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
+        // Folga para o macOS juntar a checagem a outros despertares do processador.
+        timer.tolerance = interval * 0.4
+        self.timer = timer
     }
 
     public func stop() {

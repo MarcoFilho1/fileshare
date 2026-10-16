@@ -10,14 +10,19 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongConsumer;
 
 /**
  * Conexão permanente e criptografada com o Mac pareado: acha o Mac por NSD, autentica com a chave
@@ -28,7 +33,13 @@ final class MacLink {
     interface Listener {
         void onClip(String mime, byte[] data);
 
+        /** Cópia que o Mac guardou enquanto o tablet estava fora, feita em copiedAt (ms). */
+        void onHeld(String mime, byte[] data, long copiedAt);
+
         void onState(String state);
+
+        /** Arquivo enviado pelo Mac, já salvo em Download/FileShare. */
+        void onFile(android.net.Uri uri, String name, String mime, String macName);
     }
 
     private static final int PING_MS = 20_000;
@@ -37,6 +48,13 @@ final class MacLink {
     private static final long UNPAIRED_WAIT_MS = 60_000;
 
     static volatile MacLink current;
+
+    /** O Mac recusou o arquivo (FAIL), com o motivo dele. */
+    static final class RefusedException extends IOException {
+        RefusedException(String reason) {
+            super(reason);
+        }
+    }
 
     private final Context ctx;
     private final Listener listener;
@@ -48,6 +66,7 @@ final class MacLink {
     private volatile OutputStream out;
     private volatile SecureChannel channel;
     private volatile boolean ready;
+    private volatile long lastReceivedAt;
     private Thread loop;
 
     MacLink(Context ctx, Listener listener) {
@@ -83,6 +102,19 @@ final class MacLink {
         wake();
     }
 
+    /**
+     * Tela ligou. Sem conexão: tenta agora. Com conexão, mas sem notícias do Mac há mais de um ciclo
+     * de PING (o tablet dormiu e a rede foi cortada): ela provavelmente morreu, então refaz.
+     */
+    void onScreenOn() {
+        if (ready && android.os.SystemClock.elapsedRealtime() - lastReceivedAt > PING_MS + 5_000) {
+            Log.i(BridgeService.TAG, "stale connection after sleep; reconnecting");
+            repair();
+        } else if (!ready) {
+            wake();
+        }
+    }
+
     boolean isConnected() {
         return ready;
     }
@@ -96,6 +128,34 @@ final class MacLink {
         try {
             write(Wire.Message.clip(id, mime, data));
             ack.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } finally {
+            pending.remove(id);
+        }
+    }
+
+    /**
+     * Envia um arquivo do menu Compartilhar: FILE com nome e tamanho, depois o conteúdo em PARTs, e
+     * espera o Mac confirmar que salvou. O arquivo nunca fica inteiro na memória.
+     */
+    void sendFile(String name, String mime, long size, InputStream in, LongConsumer progress, long timeoutMs) throws Exception {
+        if (!ready) throw new IOException("Mac não conectado");
+        int id = nextId.getAndIncrement();
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        pending.put(id, ack);
+        try {
+            write(Wire.Message.file(id, size, mime, name));
+            byte[] buf = new byte[Wire.PART_SIZE];
+            long sent = 0;
+            while (sent < size && !ack.isDone()) { // o Mac pode recusar no meio do caminho
+                int n = in.read(buf, 0, (int) Math.min(buf.length, size - sent));
+                if (n < 0) throw new IOException("o arquivo acabou antes do tamanho informado");
+                write(Wire.Message.part(id, Arrays.copyOf(buf, n)));
+                sent += n;
+                progress.accept(sent);
+            }
+            ack.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw e.getCause() instanceof Exception cause ? cause : e;
         } finally {
             pending.remove(id);
         }
@@ -144,6 +204,7 @@ final class MacLink {
 
     private void session(MacFinder.Found mac, PairingStore.Pairing pairing) throws Exception {
         Socket s = new Socket();
+        Map<Integer, IncomingDownload> incoming = new HashMap<>(); // arquivos do Mac chegando, pelo id
         try {
             s.connect(new InetSocketAddress(mac.host(), mac.port()), 5000);
             s.setSoTimeout(READ_TIMEOUT_MS);
@@ -163,6 +224,7 @@ final class MacLink {
             Wire.Message hello = Wire.decode(channel.open(Wire.readFrame(in)));
             if (hello.type != Wire.Type.HELLO) throw new IOException("expected HELLO");
             ready = true;
+            lastReceivedAt = android.os.SystemClock.elapsedRealtime();
             Log.i(BridgeService.TAG, "connected (encrypted) to " + hello.text + " at " + mac.host() + ":" + mac.port());
             listener.onState("Conectado ao " + hello.text + " (criptografado)");
 
@@ -180,7 +242,12 @@ final class MacLink {
 
             while (running) {
                 Wire.Message m = Wire.decode(channel.open(Wire.readFrame(in)));
+                lastReceivedAt = android.os.SystemClock.elapsedRealtime();
                 switch (m.type) {
+                    case HELD:
+                        listener.onHeld(m.text, m.data, m.copiedAt);
+                        write(Wire.Message.ack(m.id));
+                        break;
                     case CLIP:
                         listener.onClip(m.text, m.data);
                         write(Wire.Message.ack(m.id));
@@ -190,9 +257,35 @@ final class MacLink {
                         if (f != null) f.complete(null);
                         break;
                     }
+                    case FAIL: {
+                        CompletableFuture<Void> f = pending.remove(m.id);
+                        if (f != null) f.completeExceptionally(new RefusedException(m.text));
+                        break;
+                    }
                     case PING:
                         write(Wire.Message.pong());
                         break;
+                    case FILE:
+                        try {
+                            IncomingDownload file = new IncomingDownload(ctx, m.name, m.text, m.size);
+                            incoming.put(m.id, file);
+                            if (file.isComplete()) finishDownload(m.id, incoming, hello.text);
+                        } catch (IOException e) {
+                            write(Wire.Message.fail(m.id, e.getMessage()));
+                        }
+                        break;
+                    case PART: {
+                        IncomingDownload file = incoming.get(m.id);
+                        if (file == null) break; // já recusado
+                        try {
+                            file.append(m.data);
+                            if (file.isComplete()) finishDownload(m.id, incoming, hello.text);
+                        } catch (IOException e) {
+                            incoming.remove(m.id);
+                            write(Wire.Message.fail(m.id, e.getMessage()));
+                        }
+                        break;
+                    }
                     default:
                         break;
                 }
@@ -202,10 +295,24 @@ final class MacLink {
             if (!ready && channel != null && e instanceof EOFException) throw new SecureChannel.DecryptException();
             throw e;
         } finally {
+            for (IncomingDownload file : incoming.values()) file.discard();
             closeSocket();
             for (CompletableFuture<Void> f : pending.values()) f.completeExceptionally(new IOException("conexão caiu"));
             pending.clear();
             Log.i(BridgeService.TAG, "disconnected");
+        }
+    }
+
+    private void finishDownload(int id, Map<Integer, IncomingDownload> incoming, String macName) throws IOException {
+        IncomingDownload file = incoming.remove(id);
+        try {
+            android.net.Uri uri = file.finish();
+            write(Wire.Message.ack(id));
+            Log.i(BridgeService.TAG, "file from Mac saved: " + file.mime + " " + file.size + " B");
+            listener.onFile(uri, file.name, file.mime, macName);
+        } catch (IOException e) {
+            file.discard();
+            write(Wire.Message.fail(id, "não consegui salvar no tablet"));
         }
     }
 
