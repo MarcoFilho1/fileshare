@@ -65,4 +65,7 @@
     <string name="enable_title">Turn on automatic copy</string>
     <string name="enable_steps">In Accessibility settings:\n\n1. Open Installed apps (or Downloaded apps).\n2. Tap FileShare: automatic copy.\n3. Turn it on and confirm.\n\nThen come back here: you\'ll see a ✓.</string>
     <string name="open_settings">Open settings</string>
+
+    <string name="show_details">Show details</string>
+    <string name="hide_details">Hide details</string>
 </resources>

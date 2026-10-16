@@ -65,4 +65,7 @@
     <string name="enable_title">Ativar a cópia automática</string>
     <string name="enable_steps">Nos Ajustes de Acessibilidade:\n\n1. Abra Aplicativos instalados (ou Apps baixados).\n2. Toque em FileShare: cópia automática.\n3. Ative e confirme.\n\nDepois volte aqui: vai aparecer um ✓.</string>
     <string name="open_settings">Abrir Ajustes</string>
+
+    <string name="show_details">Mostrar detalhes</string>
+    <string name="hide_details">Ocultar detalhes</string>
 </resources>

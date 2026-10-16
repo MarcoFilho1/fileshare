@@ -67,6 +67,7 @@ public class MainActivity extends Activity {
         a11yButton = findViewById(R.id.a11y_button);
         a11yCheck = findViewById(R.id.a11y_check);
         a11yIconBg = findViewById(R.id.a11y_icon_bg);
+        setUpDetailsToggle();
         notifRow.action(R.string.action_allow, v -> askNotifications());
         batteryRow.action(R.string.action_allow, v -> askBattery());
         tileRow.action(R.string.action_add, v -> addTile());
@@ -117,6 +118,26 @@ public class MainActivity extends Activity {
         macIconBg.setBackgroundTintList(ColorStateList.valueOf(getColor(pairing != null ? R.color.brand : R.color.off)));
         pairSteps.setVisibility(pairing == null ? View.VISIBLE : View.GONE);
         forget.setVisibility(pairing != null ? View.VISIBLE : View.GONE);
+    }
+
+    /** "Mostrar detalhes": abre a explicação da permissão; a seta gira ao abrir. */
+    private void setUpDetailsToggle() {
+        TextView toggle = findViewById(R.id.a11y_toggle);
+        View details = findViewById(R.id.a11y_details);
+        android.graphics.drawable.Drawable arrow = getDrawable(R.drawable.ic_expand).mutate();
+        arrow.setTint(getColor(R.color.brand));
+        android.graphics.drawable.RotateDrawable rotating = new android.graphics.drawable.RotateDrawable();
+        rotating.setDrawable(arrow);
+        rotating.setFromDegrees(0);
+        rotating.setToDegrees(180);
+        rotating.setBounds(0, 0, arrow.getIntrinsicWidth(), arrow.getIntrinsicHeight());
+        toggle.setCompoundDrawablesRelative(null, null, rotating, null);
+        toggle.setOnClickListener(v -> {
+            boolean open = details.getVisibility() != View.VISIBLE;
+            details.setVisibility(open ? View.VISIBLE : View.GONE);
+            toggle.setText(open ? R.string.hide_details : R.string.show_details);
+            android.animation.ObjectAnimator.ofInt(rotating, "level", open ? 0 : 10000, open ? 10000 : 0).setDuration(200).start();
+        });
     }
 
     /** Cartão da acessibilidade: permitida (✓ e Revogar) ou não (Ativar em destaque). */
