@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_desc">FileShare: percebe quando você toca em \"Copiar\" e envia o que foi copiado ao seu Mac. Não lê o conteúdo da tela.</string>
+    <string name="a11y_label">FileShare: cópia automática</string>
+    <string name="send_to_mac">Enviar ao Mac</string>
+
+    <string name="tagline">Área de transferência e arquivos entre este tablet e o seu Mac</string>
+    <string name="unpaired_title">Ainda não pareado</string>
+    <string name="unpaired_subtitle">Pareie uma vez com o QR code do Mac</string>
+    <string name="pair_steps">1. Instale o FileShare no Mac (github.com/MarcoFilho1/fileshare).\n2. No Mac, clique em ⇄ na barra de menu → Parear tablet….\n3. Aponte a câmera deste tablet para o QR code e toque no link.</string>
+    <string name="status_connected">Conectado</string>
+    <string name="status_searching">Procurando o Mac no Wi-Fi…</string>
+    <string name="encrypted">Criptografado de ponta a ponta, só no seu Wi-Fi</string>
+
+    <string name="section_setup">Configuração</string>
+    <string name="section_howto">Como usar</string>
+
+    <string name="notif_title">Notificações</string>
+    <string name="notif_on">Você vê os arquivos que chegam do Mac</string>
+    <string name="notif_off">Necessárias para avisar dos arquivos recebidos</string>
+    <string name="battery_title">Bateria sem restrição</string>
+    <string name="battery_on">Continua conectado com o tablet dormindo</string>
+    <string name="battery_off">Recomendado para o tablet não cortar a conexão</string>
+    <string name="tile_title">Botão Enviar ao Mac</string>
+    <string name="tile_on">Nas Configurações rápidas</string>
+    <string name="tile_off">Adicione às Configurações rápidas para enviar com um toque</string>
+
+    <string name="howto_paste_title">Copiar e colar</string>
+    <string name="howto_paste_text">Copie um texto ou uma imagem num aparelho e cole no outro.</string>
+    <string name="howto_share_title">Enviar arquivos ao Mac</string>
+    <string name="howto_share_text">Em qualquer app, toque em Compartilhar → Enviar ao Mac. Eles chegam em Downloads › FileShare no Mac.</string>
+    <string name="howto_folder_title">Arquivos do Mac</string>
+    <string name="howto_folder_text">No Mac, arraste os arquivos até o ⇄. Eles chegam em Download › FileShare.</string>
+
+    <string name="action_turn_on">Ativar</string>
+    <string name="action_allow">Permitir</string>
+    <string name="action_add">Adicionar</string>
+    <string name="action_open">Abrir</string>
+    <string name="action_continue">Continuar</string>
+    <string name="done">Pronto</string>
+
+    <string name="forget_mac">Esquecer este Mac</string>
+    <string name="forget_title">Esquecer o %1$s?</string>
+    <string name="forget_text">Para conectar de novo, será preciso ler um QR code novo no Mac.</string>
+    <string name="forget_confirm">Esquecer</string>
+    <string name="cancel">Cancelar</string>
+    <string name="footer">FileShare %1$s · código aberto (MIT)</string>
+    <string name="no_file_manager">Nenhum app para abrir a pasta</string>
+
+    <string name="pair_ok_title">Pareado com o %1$s</string>
+    <string name="pair_ok_text">O tablet se conecta ao Mac sozinho pelo Wi-Fi, com criptografia. Pode fechar esta tela.</string>
+    <string name="pair_fail_title">Não consegui parear</string>
+    <string name="pair_fail_text">Leia o QR code de novo: no Mac, clique em ⇄ → Parear tablet….</string>
+
+    <string name="a11y_section">Permissão de acessibilidade</string>
+    <string name="a11y_title">Cópia automática</string>
+    <string name="a11y_on">Permitida</string>
+    <string name="a11y_off">Não permitida</string>
+    <string name="action_revoke">Revogar</string>
+    <string name="a11y_what">Quando você toca em Copiar em qualquer app, o FileShare manda o que foi copiado ao seu Mac. Sem essa permissão, use o botão Enviar ao Mac.</string>
+    <string name="a11y_why">• O Android só avisa um app de que você tocou em Copiar por meio de um serviço de acessibilidade.\n• O FileShare recebe só o nome do botão tocado e os avisos do sistema (como \"Copiado\"), apenas para reconhecer uma cópia.\n• Ele não consegue ler o que está na tela nem o que você digita, e nada disso sai do tablet. Só o que você copiou vai ao seu Mac, criptografado, pelo seu Wi-Fi.\n• Todo o resto funciona sem ela: Mac → tablet, arquivos e o botão Enviar ao Mac.</string>
+    <string name="revoke_title">Revogar a permissão de acessibilidade?</string>
+    <string name="revoke_text">As cópias feitas no tablet deixam de ir sozinhas para o Mac. Você pode ativar de novo aqui quando quiser.</string>
+
+    <string name="enable_title">Ativar a cópia automática</string>
+    <string name="enable_steps">Nos Ajustes de Acessibilidade:\n\n1. Abra Aplicativos instalados (ou Apps baixados).\n2. Toque em FileShare: cópia automática.\n3. Ative e confirme.\n\nDepois volte aqui: vai aparecer um ✓.</string>
+    <string name="open_settings">Abrir Ajustes</string>
+
+    <string name="show_details">Mostrar detalhes</string>
+    <string name="hide_details">Ocultar detalhes</string>
+</resources>

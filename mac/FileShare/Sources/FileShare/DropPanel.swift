@@ -5,8 +5,8 @@ import SwiftUI
 // Painel "Send to Tablet": quando um arquivo arrastado chega perto do ícone ⇄, um painel de vidro
 // sai de dentro do ícone, como a Central de Controle, e recebe o arquivo.
 
-/// Textos do painel no idioma do sistema.
-enum DropText {
+/// Textos da interface no idioma do sistema (inglês, ou português num Mac em português).
+enum L10n {
     static let portuguese = Locale.preferredLanguages.first?.hasPrefix("pt") == true
 
     static func t(_ english: String, _ portuguese: String) -> String {
@@ -69,7 +69,7 @@ final class DropModel {
     }
 
     var batchTitle: String {
-        batch.count == 1 ? batch[0] : DropText.t("\(batch.count) files", "\(batch.count) arquivos")
+        batch.count == 1 ? batch[0] : L10n.t("\(batch.count) files", "\(batch.count) arquivos")
     }
 
     func begin(_ urls: [URL]) {
@@ -143,7 +143,7 @@ struct DropPanelView: View {
             }
             .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 1) {
-                Text(DropText.t("Send to Tablet", "Enviar ao Tablet"))
+                Text(L10n.t("Send to Tablet", "Enviar ao Tablet"))
                     .font(.system(size: 13, weight: .semibold))
                 Text(subtitle)
                     .font(.system(size: 11))
@@ -158,9 +158,9 @@ struct DropPanelView: View {
     }
 
     private var subtitle: String {
-        if !model.paired { return DropText.t("No tablet paired", "Nenhum tablet pareado") }
+        if !model.paired { return L10n.t("No tablet paired", "Nenhum tablet pareado") }
         if model.connected { return model.tabletName }
-        return DropText.t("Asleep · files will wait", "Dormindo · os arquivos esperam")
+        return L10n.t("Asleep · files will wait", "Dormindo · os arquivos esperam")
     }
 
     private var tile: some View {
@@ -205,8 +205,8 @@ struct DropPanelView: View {
     }
 
     private func dropLabel(lit: Bool) -> String {
-        if !model.paired { return DropText.t("Pair a tablet in the ⇄ menu", "Pareie um tablet no menu ⇄") }
-        return lit ? DropText.t("Release to send", "Solte para enviar") : DropText.t("Drop files here", "Solte os arquivos aqui")
+        if !model.paired { return L10n.t("Pair a tablet in the ⇄ menu", "Pareie um tablet no menu ⇄") }
+        return lit ? L10n.t("Release to send", "Solte para enviar") : L10n.t("Drop files here", "Solte os arquivos aqui")
     }
 
     private var transfer: some View {
@@ -232,7 +232,7 @@ struct DropPanelView: View {
                     }
                 }
                 .frame(height: 6)
-                Text(DropText.t("Sending… \(Int(model.progress * 100))%", "Enviando… \(Int(model.progress * 100))%"))
+                Text(L10n.t("Sending… \(Int(model.progress * 100))%", "Enviando… \(Int(model.progress * 100))%"))
                     .font(.system(size: 11).monospacedDigit())
                     .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
@@ -243,9 +243,9 @@ struct DropPanelView: View {
 
     private func result(_ outcome: DropModel.Outcome) -> some View {
         let (symbol, color, text): (String, Color, String) = switch outcome {
-        case .sent: ("checkmark.circle.fill", .green, DropText.t("Sent to \(model.tabletName)", "Enviado ao \(model.tabletName)"))
-        case .queued: ("clock.fill", .orange, DropText.t("Will send when \(model.tabletName) wakes", "Vai quando o \(model.tabletName) acordar"))
-        case .failed(let reason): ("exclamationmark.triangle.fill", .red, DropText.t("Not sent: \(reason)", "Não enviado: \(reason)"))
+        case .sent: ("checkmark.circle.fill", .green, L10n.t("Sent to \(model.tabletName)", "Enviado ao \(model.tabletName)"))
+        case .queued: ("clock.fill", .orange, L10n.t("Will send when \(model.tabletName) wakes", "Vai quando o \(model.tabletName) acordar"))
+        case .failed(let reason): ("exclamationmark.triangle.fill", .red, L10n.t("Not sent: \(reason)", "Não enviado: \(reason)"))
         }
         return VStack(spacing: 8) {
             Image(systemName: symbol)
@@ -266,7 +266,7 @@ struct DropPanelView: View {
 
 /// Vidro do macOS 26 (o da Central de Controle) sobre o desfoque do que está atrás da janela,
 /// para o texto continuar legível em cima de qualquer fundo.
-private struct GlassBackground: ViewModifier {
+struct GlassBackground: ViewModifier {
     let cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
@@ -280,7 +280,7 @@ private struct GlassBackground: ViewModifier {
     }
 }
 
-private struct BehindWindowBlur: NSViewRepresentable {
+struct BehindWindowBlur: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = .popover

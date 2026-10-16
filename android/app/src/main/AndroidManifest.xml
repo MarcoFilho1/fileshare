@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Item "Bateria sem restrição" da tela inicial: pede a exceção num toque. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Samsung Notes guarda a imagem copiada num ContentProvider próprio; sem isso o
          Android 11+ esconde o pacote e a leitura falha com "No content provider". -->
@@ -14,7 +16,8 @@
         <package android:name="com.samsung.android.app.notes" />
     </queries>
 
-    <application android:label="FileShare" android:icon="@android:drawable/ic_menu_share">
+    <application android:label="FileShare" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.FileShare">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,8 +27,7 @@
         </activity>
 
         <!-- Menu Compartilhar: arquivos (PDF do Samsung Notes, imagens…) vão para Downloads do Mac. -->
-        <activity android:name=".ShareActivity" android:exported="true" android:label="Enviar ao Mac"
-            android:icon="@drawable/ic_mac"
+        <activity android:name=".ShareActivity" android:exported="true" android:label="@string/send_to_mac"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="">
             <intent-filter>
@@ -55,7 +57,7 @@
             android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="" />
 
         <service android:name=".SendTileService" android:exported="true"
-            android:label="Enviar ao Mac" android:icon="@android:drawable/ic_menu_send"
+            android:label="@string/send_to_mac" android:icon="@drawable/ic_stat_fileshare"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
@@ -63,7 +65,7 @@
         </service>
 
         <service android:name=".CopyWatchService" android:exported="true"
-            android:label="FileShare: cópia automática"
+            android:label="@string/a11y_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
