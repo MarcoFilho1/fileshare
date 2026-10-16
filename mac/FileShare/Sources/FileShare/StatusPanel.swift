@@ -72,15 +72,19 @@ struct StatusPanelView: View {
                 ToggleTile(symbol: model.paused ? "pause.fill" : "arrow.left.arrow.right", on: !model.paused,
                            title: L10n.t("Sync", "Sincronizar"),
                            subtitle: model.paused ? L10n.t("Paused", "Pausado") : L10n.t("On", "Ligado"),
+                           hint: L10n.t("Pauses or resumes sending and receiving copies between the Mac and the tablet.",
+                                        "Pausa ou retoma o envio e o recebimento de cópias entre o Mac e o tablet."),
+                           hintAlignment: .topLeading,
                            action: model.actions.togglePause)
-                    .help(L10n.t("Pause or resume sending and receiving copies between the Mac and the tablet",
-                                 "Pausa ou retoma o envio e o recebimento de cópias entre o Mac e o tablet"))
                 ToggleTile(symbol: "power", on: model.openAtLogin,
                            title: L10n.t("Open at Login", "Abrir ao iniciar"),
                            subtitle: model.openAtLogin ? L10n.t("On", "Ligado") : L10n.t("Off", "Desligado"),
+                           hint: L10n.t("Opens FileShare automatically when you log in to the Mac.",
+                                        "Abre o FileShare sozinho quando você entra no Mac."),
+                           hintAlignment: .topTrailing,
                            action: model.actions.toggleLogin)
-                    .help(L10n.t("Open FileShare automatically when you log in", "Abre o FileShare sozinho quando você entra no Mac"))
             }
+            .zIndex(1) // a dica passa por cima do cartão de atividade
             activityTile
             HStack(spacing: 10) {
                 ActionTile(symbol: "square.and.arrow.up", title: L10n.t("Send File…", "Enviar arquivo…"), action: model.actions.sendFile)
@@ -274,8 +278,11 @@ private struct ToggleTile: View {
     let on: Bool
     let title: String
     let subtitle: String
+    let hint: String
+    let hintAlignment: Alignment
     let action: () -> Void
     @State private var hover = false
+    @State private var showHint = false
 
     var body: some View {
         Button(action: action) {
@@ -300,8 +307,45 @@ private struct ToggleTile: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { hover = $0 }
+        .onHover { inside in
+            hover = inside
+            if inside {
+                // como as dicas do sistema: aparece depois de um instante parado em cima
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { if hover { withAnimation(.easeOut(duration: 0.15)) { showHint = true } } }
+            } else {
+                withAnimation(.easeIn(duration: 0.1)) { showHint = false }
+            }
+        }
+        .overlay(alignment: hintAlignment) {
+            if showHint {
+                // logo abaixo do botão (50 pt de altura + 6 de folga)
+                HintBubble(text: hint)
+                    .offset(y: 56)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .zIndex(showHint ? 1 : 0) // por cima do botão vizinho
         .animation(.smooth(duration: 0.2), value: on)
+    }
+}
+
+/// Dica ao parar o ponteiro num botão. O .help do sistema não aparece porque o FileShare nunca
+/// fica em primeiro plano (o painel não rouba o foco do app em uso).
+private struct HintBubble: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11))
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(width: 210, alignment: .leading)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
     }
 }
 
