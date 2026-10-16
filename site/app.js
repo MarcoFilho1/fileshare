@@ -86,8 +86,32 @@
   });
 
   // ---------- partículas ----------
-  // Traços curtos espalhados num anel em volta do centro, girando devagar; perto do ponteiro eles
-  // se afastam. Só azuis (e cinza no fundo claro).
+  // Ícones minúsculos de arquivos (documento, imagem, planilha, PDF, pasta, música, zip, código,
+  // prancheta) espalhados num anel em volta do centro, girando devagar; perto do ponteiro eles se
+  // afastam. Cada ícone é desenhado uma vez num sprite e só é copiado a cada quadro.
+  var ICONS = {
+    doc: function (c) { c.beginPath(); c.moveTo(3, 1); c.lineTo(7.5, 1); c.lineTo(10, 3.5); c.lineTo(10, 11); c.lineTo(3, 11); c.closePath(); c.moveTo(7.5, 1); c.lineTo(7.5, 3.5); c.lineTo(10, 3.5); c.moveTo(4.8, 6.3); c.lineTo(8.2, 6.3); c.moveTo(4.8, 8.4); c.lineTo(8.2, 8.4); c.stroke(); },
+    image: function (c) { c.beginPath(); c.rect(1.3, 2.3, 9.4, 7.4); c.moveTo(1.6, 9.2); c.lineTo(4.6, 6); c.lineTo(6.6, 8); c.lineTo(8, 6.7); c.lineTo(10.4, 9.2); c.stroke(); c.beginPath(); c.arc(7.9, 4.6, 0.95, 0, 7); c.fill(); },
+    csv: function (c) { c.beginPath(); c.rect(1.5, 2, 9, 8); c.moveTo(1.5, 4.7); c.lineTo(10.5, 4.7); c.moveTo(1.5, 7.3); c.lineTo(10.5, 7.3); c.moveTo(4.8, 2); c.lineTo(4.8, 10); c.stroke(); },
+    pdf: function (c) { c.beginPath(); c.moveTo(3, 1); c.lineTo(7.5, 1); c.lineTo(10, 3.5); c.lineTo(10, 11); c.lineTo(3, 11); c.closePath(); c.moveTo(7.5, 1); c.lineTo(7.5, 3.5); c.lineTo(10, 3.5); c.stroke(); c.fillRect(1.6, 6, 6.6, 3.2); },
+    folder: function (c) { c.beginPath(); c.moveTo(1.3, 3); c.lineTo(4.6, 3); c.lineTo(5.8, 4.3); c.lineTo(10.7, 4.3); c.lineTo(10.7, 9.8); c.lineTo(1.3, 9.8); c.closePath(); c.stroke(); },
+    music: function (c) { c.beginPath(); c.moveTo(5, 9); c.lineTo(5, 2.6); c.lineTo(10, 1.6); c.lineTo(10, 8); c.stroke(); c.beginPath(); c.arc(3.7, 9, 1.4, 0, 7); c.arc(8.7, 8, 1.4, 0, 7); c.fill(); },
+    zip: function (c) { c.beginPath(); c.rect(2.5, 1, 7, 10); c.moveTo(6, 1); c.lineTo(6, 2); c.moveTo(6, 3); c.lineTo(6, 4); c.moveTo(6, 5); c.lineTo(6, 6); c.stroke(); c.strokeRect(5, 7, 2, 2); },
+    code: function (c) { c.beginPath(); c.moveTo(4.4, 3.4); c.lineTo(1.6, 6); c.lineTo(4.4, 8.6); c.moveTo(7.6, 3.4); c.lineTo(10.4, 6); c.lineTo(7.6, 8.6); c.stroke(); },
+    clip: function (c) { c.beginPath(); c.rect(2.3, 2.2, 7.4, 9); c.moveTo(4.6, 6); c.lineTo(7.4, 6); c.moveTo(4.6, 8); c.lineTo(7.4, 8); c.stroke(); c.fillRect(4.2, 1, 3.6, 2.2); }
+  };
+  var KINDS = Object.keys(ICONS), sprites = {};
+  function sprite(kind, color, dpr) {
+    var key = kind + color + dpr;
+    if (sprites[key]) return sprites[key];
+    var px = Math.ceil(16 * dpr), cv = document.createElement("canvas");
+    cv.width = cv.height = px;
+    var c = cv.getContext("2d");
+    c.scale(px / 12, px / 12);
+    c.strokeStyle = c.fillStyle = color; c.lineWidth = 1.15; c.lineJoin = c.lineCap = "round";
+    ICONS[kind](c);
+    return (sprites[key] = cv);
+  }
   function field(canvas, opts) {
     if (!canvas) return;
     var ctx = canvas.getContext("2d"), dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -95,32 +119,37 @@
     function resize() {
       var r = canvas.getBoundingClientRect(); W = r.width; H = r.height;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       var n = Math.round(Math.min(opts.max, (W * H) / opts.density));
       pts = [];
       for (var i = 0; i < n; i++) {
         var a = Math.random() * Math.PI * 2;
         var rr = opts.inner + Math.pow(Math.random(), 0.7) * (1 - opts.inner);
-        pts.push({ a: a, r: rr, s: (0.4 + Math.random()) * opts.speed * (Math.random() < 0.5 ? 1 : 0.6), c: opts.colors[(Math.random() * opts.colors.length) | 0], l: 2 + Math.random() * 4, ox: 0, oy: 0 });
+        var kind = KINDS[(Math.random() * KINDS.length) | 0], col = opts.colors[(Math.random() * opts.colors.length) | 0];
+        pts.push({ a: a, r: rr, s: (0.4 + Math.random()) * opts.speed * (Math.random() < 0.5 ? 1 : 0.6),
+          img: sprite(kind, col, dpr), z: opts.size * (0.75 + Math.random() * 0.5) * (0.7 + 0.45 * rr),
+          rot: (Math.random() - 0.5) * 0.7, spin: (Math.random() - 0.5) * 0.4, ox: 0, oy: 0 });
       }
     }
     function frame(now) {
       if (!visible) return;
       var t = (now - t0) / 1000;
-      ctx.clearRect(0, 0, W, H);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       var cx = W / 2, cy = H * opts.cy, rx = W * opts.rx, ry = H * opts.ry;
       for (var i = 0; i < pts.length; i++) {
         var p = pts[i], a = p.a + (reduce ? 0 : t * p.s);
         var x = cx + Math.cos(a) * rx * p.r, y = cy + Math.sin(a) * ry * p.r;
         var dx = x - mouse.x, dy = y - mouse.y, d2 = dx * dx + dy * dy, R = 130;
-        if (d2 < R * R) { var f = (1 - Math.sqrt(d2) / R) * 22; var d = Math.sqrt(d2) || 1; p.ox += (dx / d * f - p.ox) * 0.15; p.oy += (dy / d * f - p.oy) * 0.15; }
+        if (d2 < R * R) { var f = (1 - Math.sqrt(d2) / R) * 26; var d = Math.sqrt(d2) || 1; p.ox += (dx / d * f - p.ox) * 0.15; p.oy += (dy / d * f - p.oy) * 0.15; }
         else { p.ox *= 0.92; p.oy *= 0.92; }
         x += p.ox; y += p.oy;
-        var tx = -Math.sin(a), ty = Math.cos(a) * (ry / rx);
-        var tl = Math.sqrt(tx * tx + ty * ty) || 1; tx /= tl; ty /= tl;
-        ctx.strokeStyle = p.c; ctx.lineWidth = opts.width; ctx.lineCap = "round";
-        ctx.globalAlpha = opts.alpha * (0.35 + 0.65 * p.r);
-        ctx.beginPath(); ctx.moveTo(x - tx * p.l / 2, y - ty * p.l / 2); ctx.lineTo(x + tx * p.l / 2, y + ty * p.l / 2); ctx.stroke();
+        var rot = p.rot + (reduce ? 0 : t * p.spin), cs = Math.cos(rot) * dpr, sn = Math.sin(rot) * dpr;
+        var k = 1;
+        // Em tela estreita o texto ocupa a largura toda: no meio, os ícones quase somem.
+        if (W < 700) k = Math.max(0.1, Math.min(1, (Math.abs(x - cx) / (W / 2) - 0.6) / 0.3));
+        ctx.globalAlpha = opts.alpha * (0.35 + 0.65 * p.r) * k;
+        ctx.setTransform(cs, sn, -sn, cs, x * dpr, y * dpr);
+        ctx.drawImage(p.img, -p.z / 2, -p.z / 2, p.z, p.z);
       }
       ctx.globalAlpha = 1;
       if (!reduce) requestAnimationFrame(frame);
@@ -139,10 +168,10 @@
     requestAnimationFrame(frame);
   }
   var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  field($("#field"), { max: 900, density: 1400, inner: 0.42, rx: 0.62, ry: 0.62, cy: 0.5, speed: 0.025, width: 1.6, alpha: dark ? 0.9 : 0.85,
+  field($("#field"), { max: 240, density: 4200, size: 12, inner: 0.42, rx: 0.62, ry: 0.62, cy: 0.5, speed: 0.025, alpha: dark ? 0.9 : 0.85,
     colors: dark ? ["#5b8fff", "#8fb4ff", "#2f6fea", "#3a3f4a"] : ["#1c5fe0", "#4ea6ff", "#2166f5", "#9db7ec", "#c4cbd6"] });
-  field($("#grow-field"), { max: 700, density: 1600, inner: 0.25, rx: 0.7, ry: 0.75, cy: 0.5, speed: 0.02, width: 1.4, alpha: 0.75, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
-  field($("#night-field"), { max: 600, density: 1500, inner: 0.3, rx: 0.65, ry: 0.9, cy: 0.15, speed: 0.02, width: 1.4, alpha: 0.8, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
+  field($("#grow-field"), { max: 200, density: 4800, size: 12, inner: 0.25, rx: 0.7, ry: 0.75, cy: 0.5, speed: 0.02, alpha: 0.75, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
+  field($("#night-field"), { max: 170, density: 4600, size: 12, inner: 0.3, rx: 0.65, ry: 0.9, cy: 0.15, speed: 0.02, alpha: 0.8, colors: ["#5b8fff", "#8fb4ff", "#2f6fea", "#ffffff"] });
 
   // ---------- rolagem: cartão que cresce e palavras que acendem ----------
   var card = $("#grow-card"), growSec = card && card.closest(".grow");
