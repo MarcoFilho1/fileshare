@@ -7,8 +7,28 @@ android {
         applicationId = 'dev.marcofilho.fileshare'
         minSdk = 33
         targetSdk = 36
-        versionCode = 6
-        versionName = '2.2.0'
+        versionCode = 7
+        versionName = '2.3.0'
+    }
+    // Chave definitiva (fora do repositório): scripts/build.sh passa o caminho e a senha, que fica
+    // nas Chaves do macOS. Sem ela (ex.: outra máquina), o debug usa a chave de teste do Android.
+    def keystore = System.getenv('FILESHARE_KEYSTORE')
+    signingConfigs {
+        if (keystore) {
+            release {
+                storeFile = file(keystore)
+                storePassword = System.getenv('FILESHARE_KEY_PASSWORD')
+                keyAlias = 'fileshare'
+                keyPassword = System.getenv('FILESHARE_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        if (keystore) {
+            // a mesma assinatura no que eu instalo e no que é publicado: um atualiza o outro
+            debug { signingConfig = signingConfigs.release }
+            release { signingConfig = signingConfigs.release }
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
