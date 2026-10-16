@@ -266,8 +266,7 @@
       letters.forEach(function (l) {
         var r = l.getBoundingClientRect(), d = Math.abs(e.clientX - (r.left + r.width / 2));
         var lift = Math.max(0, 1 - d / 260) * 0.16;
-        var base = l.classList.contains("up") ? 0.22 : 0;
-        l.style.transform = "translateY(" + (-(base + lift)).toFixed(3) + "em)";
+        l.style.transform = "translateY(" + (-lift).toFixed(3) + "em)";
       });
     });
     word.addEventListener("pointerleave", function () { letters.forEach(function (l) { l.style.transform = ""; }); });
