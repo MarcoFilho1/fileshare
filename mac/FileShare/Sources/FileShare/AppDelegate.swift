@@ -14,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pairItem = NSMenuItem(title: "Parear tablet…", action: #selector(pair), keyEquivalent: "")
     private let forgetItem = NSMenuItem(title: "Esquecer tablet", action: #selector(forget), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Abrir ao iniciar o Mac", action: #selector(toggleLoginItem), keyEquivalent: "")
+    private let folderItem = NSMenuItem(title: "Abrir pasta de recebidos", action: #selector(openReceivedFolder), keyEquivalent: "")
+    /// Só aparece quando os avisos estão desligados nos Ajustes (o macOS não pergunta duas vezes).
+    private let notificationsItem = NSMenuItem(title: "Ativar notificações de arquivos…", action: #selector(openNotificationSettings), keyEquivalent: "")
     private let pairingWindow = PairingWindow()
 
     private var server: TabletServer!
@@ -48,16 +51,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pairItem.target = self
         forgetItem.target = self
         loginItem.target = self
+        folderItem.target = self
+        notificationsItem.target = self
+        notificationsItem.isHidden = true
         menu.autoenablesItems = false
         menu.addItem(statusLine)
         menu.addItem(lastLine)
         menu.addItem(.separator())
+        menu.addItem(folderItem)
+        menu.addItem(notificationsItem)
         menu.addItem(pauseItem)
         menu.addItem(pairItem)
         menu.addItem(forgetItem)
         menu.addItem(loginItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Sair do FileShare", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.delegate = self
         statusItem.menu = menu
         updateIcon()
     }
@@ -87,7 +96,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setUpNotifications() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+            if !granted { NSLog("FileShare: notificações desligadas \(error.map { "(\($0))" } ?? "")") }
+            DispatchQueue.main.async { self.notificationsItem.isHidden = granted }
+        }
+    }
+
+    @objc private func openNotificationSettings() {
+        let id = Bundle.main.bundleIdentifier ?? "dev.marcofilho.fileshare"
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")!)
+    }
+
+    @objc private func openReceivedFolder() {
+        let folder = TabletServer.receivedFolder
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(folder)
     }
 
     /// Arquivo salvo em Downloads: avisa, e clicar no aviso abre o arquivo.
@@ -99,7 +122,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         content.body = "\(url.lastPathComponent) — clique para abrir"
         content.sound = .default
         content.userInfo = ["path": url.path]
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)) { error in
+            if let error { NSLog("FileShare: não consegui mostrar o aviso: \(error)") }
+        }
     }
 
     private static func kind(of mime: String) -> String {
@@ -201,5 +226,15 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    /// Reconfere os avisos a cada abertura do menu: some o item assim que forem ligados nos Ajustes.
+    func menuWillOpen(_ menu: NSMenu) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let allowed = settings.authorizationStatus == .authorized
+            DispatchQueue.main.async { self.notificationsItem.isHidden = allowed }
+        }
     }
 }

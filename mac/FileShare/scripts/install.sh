@@ -12,6 +12,8 @@ rm -rf "$TMP"
 ditto build/FileShare.app "$TMP"
 rm -rf /Applications/FileShare.app
 mv "$TMP" /Applications/FileShare.app
+# Registra a versão nova no LaunchServices (as notificações dependem disso).
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/FileShare.app
 open /Applications/FileShare.app
 echo "Instalado em /Applications/FileShare.app"
 echo "Se o macOS pedir acesso às Chaves, clique em \"Sempre permitir\" (acontece a cada atualização)."

@@ -71,7 +71,9 @@ final class TabletServer {
     private let onState: (State) -> Void
     private let onHeldDelivered: (ClipPayload) -> Void
     private let onFile: (_ url: URL, _ mime: String, _ from: String) -> Void
-    private let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+    /// Tudo que vem do menu Compartilhar do tablet fica junto, em Downloads/FileShare.
+    static let receivedFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("FileShare", isDirectory: true)
     private var held = HeldClip()
     private var pairingKey: Data?
     private var listener: NWListener?
@@ -263,7 +265,7 @@ final class TabletServer {
                 DispatchQueue.main.async { self.onReceive(payload) }
             case .file(let id, let size, let mime, let name):
                 do {
-                    let file = try IncomingFile(name: name, mime: mime, size: size, directory: downloads)
+                    let file = try IncomingFile(name: name, mime: mime, size: size, directory: Self.receivedFolder)
                     session.incoming[id] = file
                     if file.isComplete { finishFile(id, in: session) }
                 } catch {
