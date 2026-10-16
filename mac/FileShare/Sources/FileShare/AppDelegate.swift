@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pairingWindow = PairingWindow()
     private let dropPanel = DropPanelController()
     private let dragWatcher = FileDragWatcher()
+    private let sensors = ProximitySensors()
 
     private var server: TabletServer!
     private var watcher: PasteboardWatcher!
@@ -127,15 +128,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Arrastar arquivos até o ícone ⇄: ao chegar perto, o painel "Send to Tablet" sai do ícone.
     private func setUpDrop() {
-        dropPanel.onDrop = { [weak self] urls in self?.server.sendFiles(urls) }
+        dropPanel.onDrop = { [weak self] urls in
+            self?.sensors.hide()
+            self?.server.sendFiles(urls)
+        }
         dropPanel.onVisibleChange = { [weak self] on in self?.statusItem.button?.highlight(on) }
+        dragWatcher.onDragStart = { [weak self] in
+            guard let self, !dropPanel.model.isTransferring else { return }
+            sensors.show(below: allIconFrames)
+        }
+        sensors.onFileNear = { [weak self] icon in
+            guard let self else { return }
+            dropPanel.show(below: icon)
+        }
         dragWatcher.onMove = { [weak self] point in
-            guard let self, let icon = iconFrame else { return }
-            dropPanel.dragMoved(to: point, iconFrame: icon)
+            self?.dropPanel.dragMoved(to: point, nearZones: self?.sensors.zones ?? [])
         }
         dragWatcher.onEnd = { [weak self] in
-            guard let self, dropPanel.model.batch.isEmpty else { return }
-            dropPanel.hide(after: 0.3)
+            guard let self else { return }
+            sensors.hide()
+            if dropPanel.model.batch.isEmpty { dropPanel.hide(after: 0.3) }
         }
         dragWatcher.start()
         guard let window = statusItem.button?.window else { return }
@@ -147,6 +159,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     fileprivate var iconFrame: NSRect? {
         guard let button = statusItem.button, let window = button.window else { return nil }
         return window.convertToScreen(button.convert(button.bounds, to: nil))
+    }
+
+    /// O ⇄ em todas as telas.
+    fileprivate var allIconFrames: [NSRect] {
+        NSScreen.screens.compactMap { iconFrame(near: NSPoint(x: $0.frame.midX, y: $0.frame.midY)) }
+    }
+
+    /// O ⇄ aparece na barra de menu de cada tela, à mesma distância da borda direita, mas o AppKit
+    /// só diz onde ele está numa delas: nas outras, a posição é calculada.
+    fileprivate func iconFrame(near point: NSPoint) -> NSRect? {
+        guard let base = iconFrame else { return nil }
+        let screens = NSScreen.screens
+        guard let home = screens.first(where: { NSMouseInRect(NSPoint(x: base.midX, y: base.midY), $0.frame, false) }),
+              let here = screens.first(where: { NSMouseInRect(point, $0.frame, false) }),
+              here != home else { return base }
+        let fromRight = home.frame.maxX - base.minX
+        let bar = here.frame.maxY - here.visibleFrame.maxY
+        let height = bar > 0 ? bar : base.height
+        return NSRect(x: here.frame.maxX - fromRight, y: here.frame.maxY - height, width: base.width, height: height)
     }
 
     fileprivate func droppedFiles(_ info: NSDraggingInfo) -> [URL] {
@@ -358,7 +389,7 @@ extension AppDelegate: NSMenuDelegate {
 extension AppDelegate: NSWindowDelegate, NSDraggingDestination {
     func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         guard dropPanel.model.paired, !dropPanel.model.isTransferring, !droppedFiles(sender).isEmpty else { return [] }
-        if let icon = iconFrame { dropPanel.show(below: icon) }
+        if let icon = iconFrame(near: NSEvent.mouseLocation) { dropPanel.show(below: icon) }
         dropPanel.setTargeted(true)
         return .copy
     }
@@ -370,6 +401,7 @@ extension AppDelegate: NSWindowDelegate, NSDraggingDestination {
     func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let urls = droppedFiles(sender)
         guard !urls.isEmpty else { return false }
+        sensors.hide()
         dropPanel.accept(urls)
         return true
     }

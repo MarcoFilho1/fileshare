@@ -426,15 +426,11 @@ final class DropPanelController {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    /// O arrasto passou por aqui: abre perto do ícone, fecha ao se afastar.
-    func dragMoved(to point: NSPoint, iconFrame: NSRect) {
-        guard !model.isTransferring else { return }
-        let near = abs(point.x - iconFrame.midX) < 150 && point.y > iconFrame.minY - 120
-        if near {
-            show(below: iconFrame)
-        } else if isWaitingForDrop, !window.frame.insetBy(dx: -40, dy: -40).contains(point) {
-            hide()
-        }
+    /// O arrasto se afastou do painel e da área perto do ícone: fecha.
+    func dragMoved(to point: NSPoint, nearZones: [NSRect]) {
+        guard isWaitingForDrop else { return }
+        let zones = nearZones + [window.frame]
+        if !zones.contains(where: { $0.insetBy(dx: -30, dy: -30).contains(point) }) { hide() }
     }
 
     func setTargeted(_ on: Bool) {
@@ -480,41 +476,108 @@ final class DropPanelController {
 
 // MARK: Arrasto chegando perto
 
-/// Percebe, em qualquer app, um arrasto de arquivo em andamento e conta onde o ponteiro está.
-/// Só observa eventos de arrastar com o botão esquerdo; não lê teclado nem precisa de permissão.
+/// Percebe, em qualquer app, que o botão esquerdo está arrastando algo e onde o ponteiro está.
+/// Só observa eventos do mouse; não lê teclado nem precisa de permissão.
+/// (Saber se é um arquivo fica com os sensores: a área de arrasto do sistema não muda para os
+/// outros apps quando o arrasto sai do Finder.)
 @MainActor
 final class FileDragWatcher {
+    var onDragStart: () -> Void = {}
     var onMove: (NSPoint) -> Void = { _ in }
     var onEnd: () -> Void = {}
 
     private var monitors: [Any] = []
-    /// Contador da área de arrasto no fim do último gesto: se mudou, começou um arrasto novo.
-    /// (Não dá para usar o do clique: o Finder às vezes já preparou o arrasto antes de o aviso chegar aqui.)
-    private var baseline = 0
-    /// nil enquanto não deu para saber se o arrasto é de arquivo.
-    private var isFileDrag: Bool?
+    private var dragging = false
+    /// FILESHARE_DEBUG_DRAG=1 ao rodar o binário pelo terminal: registra o que o monitor percebe.
+    private let debug = ProcessInfo.processInfo.environment["FILESHARE_DEBUG_DRAG"] != nil
 
     func start() {
-        let drag = NSPasteboard(name: .drag)
-        baseline = drag.changeCount
         monitors = [
             NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    if self.isFileDrag == nil, drag.changeCount != self.baseline {
-                        self.isFileDrag = drag.types?.contains(.fileURL) == true
+                    if !self.dragging {
+                        self.dragging = true
+                        if self.debug { NSLog("drag: começou em \(NSEvent.mouseLocation)") }
+                        self.onDragStart()
                     }
-                    if self.isFileDrag == true { self.onMove(NSEvent.mouseLocation) }
+                    self.onMove(NSEvent.mouseLocation)
                 }
             },
             NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    guard let self else { return }
-                    if self.isFileDrag == true { self.onEnd() }
-                    self.isFileDrag = nil
-                    self.baseline = drag.changeCount
+                    guard let self, self.dragging else { return }
+                    self.dragging = false
+                    if self.debug { NSLog("drag: terminou em \(NSEvent.mouseLocation)") }
+                    self.onEnd()
                 }
             },
         ].compactMap { $0 }
+    }
+}
+
+/// Áreas invisíveis logo abaixo do ⇄, uma por tela, que só existem enquanto algo está sendo
+/// arrastado. Quando um arquivo entra numa delas, é o próprio sistema que avisa, com o arquivo:
+/// é assim que o painel abre ao chegar perto, antes de alcançar o ícone. Arrastos que não são
+/// de arquivo fazem a área sumir na hora, para não atrapalhar o app de baixo.
+@MainActor
+final class ProximitySensors {
+    static let size = NSSize(width: 380, height: 170)
+
+    /// Arquivo entrou na área abaixo deste ícone.
+    var onFileNear: (NSRect) -> Void = { _ in }
+    private var windows: [(window: NSWindow, icon: NSRect)] = []
+
+    var zones: [NSRect] { windows.map(\.window.frame) }
+
+    func show(below icons: [NSRect]) {
+        hide()
+        for icon in icons {
+            guard let screen = NSScreen.screens.first(where: { NSMouseInRect(NSPoint(x: icon.midX, y: icon.midY), $0.frame, false) }) else { continue }
+            let x = min(max(icon.midX - Self.size.width / 2, screen.frame.minX), screen.frame.maxX - Self.size.width)
+            let frame = NSRect(x: x, y: icon.minY - Self.size.height, width: Self.size.width, height: Self.size.height)
+            let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+            window.isOpaque = false
+            // quase transparente: totalmente transparente o sistema atravessaria a janela
+            window.backgroundColor = NSColor(white: 0, alpha: 1 / 255)
+            window.ignoresMouseEvents = false
+            window.hasShadow = false
+            window.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue - 1)
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
+            window.isReleasedWhenClosed = false
+            window.animationBehavior = .none
+            let sensor = SensorView()
+            sensor.onEnter = { [weak self] hasFiles in
+                guard let self else { return }
+                if hasFiles { onFileNear(icon) } else { hide() }
+            }
+            window.contentView = sensor
+            window.orderFrontRegardless()
+            windows.append((window, icon))
+        }
+    }
+
+    func hide() {
+        windows.forEach { $0.window.orderOut(nil) }
+        windows = []
+    }
+}
+
+private final class SensorView: NSView {
+    var onEnter: (Bool) -> Void = { _ in }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        // tipos comuns além de arquivos, para perceber (e sair da frente de) qualquer arrasto
+        registerForDraggedTypes([.fileURL, .URL, .string, .tiff, .png, .pdf, .rtf, .html, .color]
+            + NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) })
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        onEnter(!urls.isEmpty)
+        return []
     }
 }
