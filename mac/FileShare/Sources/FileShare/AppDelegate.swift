@@ -105,6 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forget: { [weak self] in self?.statusPanel.hide(); self?.confirmForget() },
             enableNotifications: { [weak self] in self?.statusPanel.hide(); self?.openNotificationSettings() },
             recopy: { [weak self] entry in self?.statusPanel.hide(); self?.recopy(entry) },
+            cancelSending: { [weak self] in self?.server.cancelSending() },
+            cancelReceiving: { [weak self] in self?.server.cancelReceiving() },
             quit: { NSApp.terminate(nil) })
         updateIcon()
     }
@@ -185,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.title = L10n.t("Send to Tablet", "Enviar ao tablet")
         panel.prompt = L10n.t("Send", "Enviar")
         panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true // pastas vão compactadas e o tablet 2.6+ as desfaz
         NSApp.activate()
         guard panel.runModal() == .OK else { return }
         server.sendFiles(panel.urls)
@@ -270,6 +272,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .failed(let name, let reason):
             status.sending = nil
             status.log(.failed, "\(name): \(reason)")
+        case .preparing(let name):
+            status.log(.waiting, L10n.t("Compressing ", "Compactando ") + name + "…")
+        case .cancelled(let name):
+            status.sending = nil
+            status.log(.failed, L10n.t("Cancelled: ", "Cancelado: ") + name)
+        case .receiving(let name, let fraction): status.receiving = (name, fraction)
+        case .receivingEnded: status.receiving = nil
         }
     }
 

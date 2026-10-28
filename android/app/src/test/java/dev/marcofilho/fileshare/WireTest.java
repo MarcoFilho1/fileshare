@@ -169,6 +169,96 @@ public class WireTest {
         assertEquals(null, BridgeService.singleLink("ex.com"));
     }
 
+    /** Mesmo texto do WireTests.swift. */
+    @Test
+    public void stopMatchesMacFormat() throws IOException {
+        assertEquals("STOP 9\n", new String(Wire.messageBytes(Wire.Message.stop(9)), StandardCharsets.UTF_8));
+        assertEquals(Wire.Type.STOP, Wire.decode("STOP 9\n".getBytes(StandardCharsets.UTF_8)).type);
+    }
+
+    @Test
+    public void fileLimitDependsOnMac() {
+        assertEquals(1L << 40, Wire.maxFileSize(true));
+        assertEquals(100L * 1024 * 1024, Wire.maxFileSize(false));
+        long gb = 1024L * 1024 * 1024;
+        assertTrue(Wire.hasRoom(gb, 2 * gb));
+        assertFalse(Wire.hasRoom(gb, gb + 100L * 1024 * 1024));
+    }
+
+    /** Pasta do Mac: acentos normalizados, nada oculto, nada fora da pasta. */
+    @Test
+    public void folderEntriesAreSafe() {
+        String nfd = java.text.Normalizer.normalize("Capítulo 1/exercício.txt", java.text.Normalizer.Form.NFD);
+        assertEquals(java.util.List.of("Capítulo 1", "exercício.txt"), IncomingFolder.safePath(nfd));
+        assertEquals(null, IncomingFolder.safePath("../../.ssh/authorized_keys"));
+        assertEquals(null, IncomingFolder.safePath("a/../../b.txt"));
+        assertEquals(null, IncomingFolder.safePath("/etc/passwd"));
+        assertEquals(null, IncomingFolder.safePath("sub/.DS_Store"));
+        assertEquals(null, IncomingFolder.safePath("__MACOSX/._a.txt"));
+        assertEquals(java.util.List.of("a", "b.txt"), IncomingFolder.safePath("a\\b.txt"));
+    }
+
+    /** Mesmo texto do WireTests.swift: o nome vai por último e pode ter espaços. */
+    @Test
+    public void sendAndFromMatchMacFormat() throws IOException {
+        byte[] bytes = Wire.messageBytes(Wire.Message.send(2, 10, "abcdef0123456789", "application/pdf", "Nota de aula.pdf"));
+        assertEquals("SEND 2 10 abcdef0123456789 application/pdf Nota de aula.pdf\n", new String(bytes, StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals(Wire.Type.SEND, m.type);
+        assertEquals("abcdef0123456789", m.transferId);
+        assertEquals("Nota de aula.pdf", m.name);
+        assertEquals(10, m.size);
+        assertThrows(IOException.class, () -> Wire.decode("SEND 2 10 NAO-HEX application/pdf a.pdf\n".getBytes(StandardCharsets.UTF_8)));
+        assertEquals("FROM 2 5\n", new String(Wire.messageBytes(Wire.Message.from(2, 5)), StandardCharsets.UTF_8));
+        assertEquals(5, Wire.decode("FROM 2 5\n".getBytes(StandardCharsets.UTF_8)).size);
+    }
+
+    /** Mesmo vetor do PartCompressionTests.swift, feito pelo zlib do Python (DEFLATE cru). */
+    @Test
+    public void decodesSharedCompressionVector() throws IOException {
+        String hex = "edc8b109c0201000c0c1beb7b3ca041f79306015dc1fc7b0b92baf7dab9e997f45cf113bdf553b9a94524a29a594524a29a594524a29a594524a29e5bd3c";
+        byte[] z = new byte[hex.length() / 2];
+        for (int i = 0; i < z.length; i++) z[i] = (byte) Integer.parseInt(hex.substring(2 * i, 2 * i + 2), 16);
+        assertEquals("FileShare;Mac;tablet;".repeat(400), new String(PartCompression.decompress(z, Wire.PART_SIZE), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void compressionRoundTripAndLimits() throws IOException {
+        StringBuilder csv = new StringBuilder();
+        for (int i = 1; csv.length() < Wire.PART_SIZE; i++) csv.append(i).append(";Fulano de Tal;2026-10-28;R$ ").append(i % 97).append(",00\n");
+        byte[] text = java.util.Arrays.copyOf(csv.toString().getBytes(StandardCharsets.UTF_8), Wire.PART_SIZE);
+        byte[] small = PartCompression.compress(text, text.length);
+        assertTrue(small.length < text.length / 3);
+        assertArrayEquals(text, PartCompression.decompress(small, Wire.PART_SIZE));
+
+        byte[] random = new byte[Wire.PART_SIZE];
+        new java.util.Random(7).nextBytes(random);
+        assertEquals(null, PartCompression.compress(random, random.length)); // como um vídeo: vai como está
+
+        byte[] bomb = PartCompression.compress(new byte[Wire.PART_SIZE * 4], Wire.PART_SIZE * 4);
+        assertThrows(IOException.class, () -> PartCompression.decompress(bomb, Wire.PART_SIZE));
+        assertThrows(IOException.class, () -> PartCompression.decompress(new byte[]{(byte) 0xFF, 0, 0x13}, Wire.PART_SIZE));
+    }
+
+    @Test
+    public void compressionSkipsCompressedTypes() {
+        assertTrue(PartCompression.worthTrying("dados.csv", "text/csv"));
+        assertTrue(PartCompression.worthTrying("relatório.pdf", "application/pdf"));
+        assertFalse(PartCompression.worthTrying("aula.mp4", "video/mp4"));
+        assertFalse(PartCompression.worthTrying("foto.jpg", "image/jpeg"));
+        assertFalse(PartCompression.worthTrying("planilha.xlsx", "application/octet-stream"));
+    }
+
+    /** Mesmo texto do PartCompressionTests.swift. */
+    @Test
+    public void partZMatchesMacFormat() throws IOException {
+        byte[] bytes = Wire.messageBytes(Wire.Message.partZ(7, new byte[]{1, 2, 3}));
+        assertArrayEquals(new byte[]{'P', 'A', 'R', 'Z', ' ', '7', '\n', 1, 2, 3}, bytes);
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals(Wire.Type.PARZ, m.type);
+        assertArrayEquals(new byte[]{1, 2, 3}, m.data);
+    }
+
     /** Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo. */
     @Test
     public void rejectsGarbage() {

@@ -28,6 +28,9 @@ struct WireTests {
         .pong,
         .battery(level: 72, charging: false),
         .open(id: 5, url: "https://www.youtube.com/watch?v=abc&t=10"),
+        .stop(id: 9),
+        .send(id: 4, size: 3_000_000_000, transferId: "0123456789abcdef0123456789abcdef", mime: "video/mp4", name: "Aula 7 - gravação.mp4"),
+        .from(id: 4, offset: 1_048_576),
         .battery(level: 100, charging: true),
     ])
     func roundTrips(_ message: WireMessage) throws {
@@ -87,6 +90,31 @@ struct WireTests {
     ])
     func acceptsOnlyWebLinks(_ text: String, _ ok: Bool) {
         #expect((Wire.webURL(text) != nil) == ok)
+    }
+
+    /// Mesmo texto do WireTest.java.
+    @Test func stopMatchesAndroidFormat() {
+        #expect(String(decoding: Wire.messageBytes(.stop(id: 9)), as: UTF8.self) == "STOP 9\n")
+    }
+
+    /// Mesmo texto do WireTest.java: o nome vai por último e pode ter espaços.
+    @Test func sendMatchesAndroidFormat() throws {
+        let bytes = Wire.messageBytes(.send(id: 2, size: 10, transferId: "abcdef0123456789", mime: "application/pdf", name: "Nota de aula.pdf"))
+        #expect(String(decoding: bytes, as: UTF8.self) == "SEND 2 10 abcdef0123456789 application/pdf Nota de aula.pdf\n")
+        #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data("SEND 2 10 NAO-HEX application/pdf a.pdf\n".utf8)) }
+        #expect(String(decoding: Wire.messageBytes(.from(id: 2, offset: 5)), as: UTF8.self) == "FROM 2 5\n")
+    }
+
+    /// Sem limite fixo para quem anunciou "big" (só a trava de 1 TB); 100 MB para versões até a 2.5.
+    @Test func fileLimitDependsOnPeer() {
+        #expect(Wire.maxFileSize(peerSupportsBigFiles: true) == 1 << 40)
+        #expect(Wire.maxFileSize(peerSupportsBigFiles: false) == 100 * 1024 * 1024)
+    }
+
+    @Test func roomLeavesSpareSpace() {
+        let gb: Int64 = 1024 * 1024 * 1024
+        #expect(Wire.hasRoom(for: gb, free: 2 * gb))
+        #expect(!Wire.hasRoom(for: gb, free: gb + 100 * 1024 * 1024))
     }
 
     /// Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo.

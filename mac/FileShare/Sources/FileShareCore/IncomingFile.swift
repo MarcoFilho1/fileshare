@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 public final class IncomingFile {
     public enum Failure: Error, Equatable {
         case tooLarge(Int64)
+        /// Não cabe no disco do Mac (deixando a folga de Wire.spareSpace).
+        case noSpace(Int64)
         case moreThanAnnounced
         case io(String)
     }
@@ -14,12 +16,23 @@ public final class IncomingFile {
     public let mime: String
     public let size: Int64
     public private(set) var received: Int64 = 0
+    /// Quando o FILE chegou, para medir a velocidade.
+    public let startedAt = Date()
+    /// Identificador do SEND (2.6+): com ele, o arquivo continua de onde parou se a conexão cair.
+    public let transferId: String?
+    /// Última vez que chegou um pedaço; pedaços guardados esquecidos por 24 h são apagados.
+    public private(set) var lastActivity = Date()
     private let directory: URL
     private let partialURL: URL
     private var handle: FileHandle?
 
-    public init(name: String, mime: String, size: Int64, directory: URL) throws {
+    /// `freeSpace` só existe para os testes; normalmente é o espaço livre do disco de `directory`.
+    public init(name: String, mime: String, size: Int64, directory: URL, transferId: String? = nil, freeSpace: Int64? = nil) throws {
+        self.transferId = transferId
         guard size <= Wire.maxFileSize else { throw Failure.tooLarge(size) }
+        if let free = freeSpace ?? Self.freeSpace(near: directory), !Wire.hasRoom(for: size, free: free) {
+            throw Failure.noSpace(size)
+        }
         self.name = Self.safeName(name, mime: mime)
         self.mime = mime
         self.size = size
@@ -52,6 +65,15 @@ public final class IncomingFile {
             throw Failure.io(error.localizedDescription)
         }
         received += Int64(data.count)
+        lastActivity = Date()
+    }
+
+    /// Pedaços (.part) que ficaram de uma vez anterior em que o app foi fechado no meio de um arquivo.
+    public static func removeLeftovers(in directory: URL) {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil, options: [])) ?? []
+        for url in files where url.lastPathComponent.hasPrefix(".fileshare-") && url.pathExtension == "part" {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     /// Fecha o arquivo e o move para o nome final; devolve onde ele ficou.
@@ -66,6 +88,13 @@ public final class IncomingFile {
             discard()
             throw Failure.io(error.localizedDescription)
         }
+    }
+
+    /// Espaço livre no disco da pasta (ou da pasta acima, se ela ainda não existe); nil se não deu para saber.
+    static func freeSpace(near directory: URL) -> Int64? {
+        var url = directory
+        while !FileManager.default.fileExists(atPath: url.path), url.pathComponents.count > 1 { url.deleteLastPathComponent() }
+        return (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
     }
 
     /// Conexão caiu no meio: apaga o que chegou.
