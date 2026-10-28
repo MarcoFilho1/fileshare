@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- mantém o tablet acordado só durante um envio ou recebimento de arquivo -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Item "Bateria sem restrição" da tela inicial: pede a exceção num toque. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -86,6 +89,8 @@
 
         <!-- botão Cancelar da notificação "Esperando o Mac" -->
         <receiver android:name=".Outbox$CancelReceiver" android:exported="false" />
+        <!-- botões Cancelar de "Enviando ao Mac" e "Recebendo do Mac" -->
+        <receiver android:name=".TransferCancelReceiver" android:exported="false" />
 
         <receiver android:name=".StartReceiver" android:exported="false">
             <intent-filter>

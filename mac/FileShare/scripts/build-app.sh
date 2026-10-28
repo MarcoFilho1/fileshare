@@ -18,8 +18,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>FileShare</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleShortVersionString</key><string>2.5.0</string>
-    <key>CFBundleVersion</key><string>2.5.0</string>
+    <key>CFBundleShortVersionString</key><string>2.6.0</string>
+    <key>CFBundleVersion</key><string>2.6.0</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSLocalNetworkUsageDescription</key><string>O FileShare conversa com o seu tablet pela rede Wi-Fi local.</string>

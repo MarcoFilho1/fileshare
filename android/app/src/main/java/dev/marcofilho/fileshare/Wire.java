@@ -23,11 +23,45 @@ import java.util.TreeSet;
 final class Wire {
     static final int MAX_PAYLOAD = 25 * 1024 * 1024;
     static final int MAX_FRAME = MAX_PAYLOAD + 1024;
-    /** Arquivos vão em pedaços, então podem passar do limite de um quadro. */
-    static final long MAX_FILE_SIZE = 100L * 1024 * 1024;
+    /**
+     * Arquivos vão em pedaços, então podem passar do limite de um quadro. Desde a 2.6 não há limite
+     * fixo, só o espaço livre de quem recebe; isto é só uma trava contra tamanhos absurdos (1 TB).
+     */
+    static final long MAX_FILE_SIZE = 1L << 40;
+    /** Até a 2.5 o outro lado recusa arquivos acima disto. */
+    static final long LEGACY_MAX_FILE_SIZE = 100L * 1024 * 1024;
+    /** Folga que fica livre no armazenamento de quem recebe, além do arquivo. */
+    static final long SPARE_SPACE = 200L * 1024 * 1024;
+    /** Arquivo que é uma pasta compactada em zip pelo Mac: o tablet a desfaz em Download/FileShare. */
+    static final String FOLDER_MIME = "application/x-fileshare-folder";
+
+    /** "1,5 GB em 303,0 s (5,2 MB/s)": para o log de velocidade das transferências. */
+    static String speed(long bytes, long startedAtElapsedMs, long nowElapsedMs) {
+        double seconds = Math.max(nowElapsedMs - startedAtElapsedMs, 1) / 1000.0;
+        return FileSender.readable(bytes) + String.format(java.util.Locale.forLanguageTag("pt-BR"), " em %.1f s (%.1f MB/s)",
+                seconds, bytes / 1048576.0 / seconds);
+    }
+
+    /** Identificador de um arquivo entre tentativas: 8 a 64 letras hexadecimais minúsculas. */
+    static boolean isTransferId(String s) {
+        return s.matches("[0-9a-f]{8,64}");
+    }
+
+    static String newTransferId() {
+        return java.util.UUID.randomUUID().toString().replace("-", "");
+    }
+
+    static long maxFileSize(boolean peerSupportsBigFiles) {
+        return peerSupportsBigFiles ? MAX_FILE_SIZE : LEGACY_MAX_FILE_SIZE;
+    }
+
+    /** Cabe sem lotar o armazenamento? Deixa SPARE_SPACE livre depois. */
+    static boolean hasRoom(long size, long free) {
+        return free - size >= SPARE_SPACE;
+    }
     static final int PART_SIZE = 512 * 1024;
 
-    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, OPEN, UNKNOWN }
+    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, OPEN, STOP, SEND, FROM, UNKNOWN }
 
     /**
      * O que cada lado anuncia no HELLO: a versão do app e os recursos que ele entende. Vai no corpo
@@ -82,6 +116,7 @@ final class Wire {
         final long size; // só no FILE
         final String name; // só no FILE
         final Peer peer; // só no HELLO
+        final String transferId; // só no SEND
 
         private Message(Type type, int id, String text, byte[] data) {
             this(type, id, text, data, 0, 0, null);
@@ -92,6 +127,11 @@ final class Wire {
         }
 
         private Message(Type type, int id, String text, byte[] data, long copiedAt, long size, String name, Peer peer) {
+            this(type, id, text, data, copiedAt, size, name, peer, null);
+        }
+
+        private Message(Type type, int id, String text, byte[] data, long copiedAt, long size, String name, Peer peer, String transferId) {
+            this.transferId = transferId;
             this.peer = peer;
             this.type = type;
             this.id = id;
@@ -115,6 +155,14 @@ final class Wire {
         static Message pong() { return new Message(Type.PONG, 0, null, null); }
         /** Bateria do tablet: id é o nível (0–100), copiedAt 1 se está carregando. Só para Mac com "batt". */
         static Message battery(int level, boolean charging) { return new Message(Type.BATT, level, null, null, charging ? 1 : 0, 0, null); }
+        /** Arquivo que continua de onde parou se a conexão cair (2.6+); transferId é o mesmo em todas as tentativas. */
+        static Message send(int id, long size, String transferId, String mime, String name) {
+            return new Message(Type.SEND, id, mime, null, 0, size, name, Peer.NONE, transferId);
+        }
+        /** Resposta ao SEND: a partir de que byte (size) mandar. */
+        static Message from(int id, long offset) { return new Message(Type.FROM, id, null, null, 0, offset, null); }
+        /** Quem envia o arquivo `id` desistiu no meio (Cancelar): quem recebe apaga o que chegou. */
+        static Message stop(int id) { return new Message(Type.STOP, id, null, null); }
         /** Link para abrir no navegador do Mac (text); só para Mac com "open". Ele responde ACK ou FAIL. */
         static Message open(int id, String url) { return new Message(Type.OPEN, id, url, null); }
         /** Tipo de uma versão mais nova do Mac; text é o nome do tipo. */
@@ -150,6 +198,9 @@ final class Wire {
             case FAIL: header = "FAIL " + m.id + " " + m.text + "\n"; break;
             case PING: header = "PING\n"; break;
             case PONG: header = "PONG\n"; break;
+            case STOP: header = "STOP " + m.id + "\n"; break;
+            case SEND: header = "SEND " + m.id + " " + m.size + " " + m.transferId + " " + m.text + " " + m.name + "\n"; break;
+            case FROM: header = "FROM " + m.id + " " + m.size + "\n"; break;
             case OPEN: header = "OPEN " + m.id + " " + m.text + "\n"; break;
             case BATT: header = "BATT " + m.id + " " + m.copiedAt + "\n"; break;
             default: header = m.text + "\n"; break; // UNKNOWN: só nos testes
@@ -183,7 +234,7 @@ final class Wire {
         String header = new String(frame, 0, nl, StandardCharsets.UTF_8);
         byte[] body = Arrays.copyOfRange(frame, nl + 1, frame.length);
         // o último argumento (nome, mime, motivo) pode ter espaços
-        String[] parts = header.split(" ", header.startsWith("FILE ") ? 5 : header.startsWith("HELD ") ? 4 : 3);
+        String[] parts = header.split(" ", header.startsWith("SEND ") ? 6 : header.startsWith("FILE ") ? 5 : header.startsWith("HELD ") ? 4 : 3);
         try {
             switch (parts[0]) {
                 case "AUTH":
@@ -215,6 +266,21 @@ final class Wire {
                     return Message.fail(Integer.parseInt(parts[1]), parts[2]);
                 case "PING": return Message.ping();
                 case "PONG": return Message.pong();
+                case "SEND": {
+                    if (parts.length != 6 || body.length != 0 || !isTransferId(parts[3])) break;
+                    long size = Long.parseLong(parts[2]);
+                    if (size < 0) break;
+                    return Message.send(Integer.parseInt(parts[1]), size, parts[3], parts[4], parts[5]);
+                }
+                case "FROM": {
+                    if (parts.length != 3) break;
+                    long offset = Long.parseLong(parts[2]);
+                    if (offset < 0) break;
+                    return Message.from(Integer.parseInt(parts[1]), offset);
+                }
+                case "STOP":
+                    if (parts.length != 2) break;
+                    return Message.stop(Integer.parseInt(parts[1]));
                 case "OPEN":
                     if (parts.length != 3 || parts[2].isEmpty()) break;
                     return Message.open(Integer.parseInt(parts[1]), parts[2]);

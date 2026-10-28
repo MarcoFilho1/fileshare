@@ -30,6 +30,8 @@ final class StatusModel {
         var forget: () -> Void = {}
         var enableNotifications: () -> Void = {}
         var recopy: (ClipHistory.Entry) -> Void = { _ in }
+        var cancelSending: () -> Void = {}
+        var cancelReceiving: () -> Void = {}
         var quit: () -> Void = {}
     }
 
@@ -54,6 +56,8 @@ final class StatusModel {
     var showingHistory = false
     /// Arquivo indo para o tablet agora.
     var sending: (name: String, fraction: Double)?
+    /// Arquivo grande chegando do tablet agora.
+    var receiving: (name: String, fraction: Double)?
     var actions = Actions()
 
     var paired: Bool { link != .unpaired }
@@ -282,21 +286,14 @@ struct StatusPanelView: View {
     private var activityList: some View {
             VStack(alignment: .leading, spacing: 8) {
             if let sending = model.sending {
-                HStack(spacing: 10) {
-                    ActivityIcon(kind: .toTablet)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(sending.name).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.primary.opacity(0.1))
-                                Capsule().fill(Color.accentColor).frame(width: max(5, geo.size.width * sending.fraction))
-                            }
-                        }
-                        .frame(height: 5)
-                    }
-                }
+                TransferRow(kind: .toTablet, name: sending.name, fraction: sending.fraction,
+                            cancelLabel: L10n.t("Cancel sending", "Cancelar envio"), cancel: model.actions.cancelSending)
             }
-            ForEach(model.activity.prefix(model.sending == nil ? 4 : 3)) { item in
+            if let receiving = model.receiving {
+                TransferRow(kind: .fromTablet, name: receiving.name, fraction: receiving.fraction,
+                            cancelLabel: L10n.t("Cancel receiving", "Cancelar recebimento"), cancel: model.actions.cancelReceiving)
+            }
+            ForEach(model.activity.prefix(4 - (model.sending == nil ? 0 : 1) - (model.receiving == nil ? 0 : 1))) { item in
                 HStack(spacing: 10) {
                     ActivityIcon(kind: item.kind)
                     Text(item.text)
@@ -314,7 +311,7 @@ struct StatusPanelView: View {
             // altura fixa de 4 linhas: atividade nova não empurra os botões de baixo
             .frame(maxWidth: .infinity, minHeight: Self.activityHeight, maxHeight: Self.activityHeight, alignment: .top)
             .overlay {
-                if model.activity.isEmpty && model.sending == nil {
+                if model.activity.isEmpty && model.sending == nil && model.receiving == nil {
                     VStack(spacing: 6) {
                         Image(systemName: "doc.on.clipboard")
                             .font(.system(size: 20))
@@ -326,6 +323,42 @@ struct StatusPanelView: View {
                 }
             }
             .clipped()
+    }
+}
+
+/// Arquivo indo ou vindo, com a barra de progresso e o × para cancelar.
+private struct TransferRow: View {
+    let kind: StatusModel.Activity.Kind
+    let name: String
+    let fraction: Double
+    let cancelLabel: String
+    let cancel: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ActivityIcon(kind: kind)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.1))
+                        Capsule().fill(Color.accentColor).frame(width: max(5, geo.size.width * fraction))
+                    }
+                }
+                .frame(height: 5)
+            }
+            Button(action: cancel) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(Color.primary.opacity(hover ? 0.14 : 0.08)))
+            }
+            .buttonStyle(.plain)
+            .onHover { hover = $0 }
+            .accessibilityLabel(cancelLabel)
+        }
     }
 }
 

@@ -29,6 +29,8 @@ final class FileSender {
     private static final String CHANNEL = "files";
     private static final long CONNECT_WAIT_MS = 15_000;
     private static final long ACK_TIMEOUT_MS = 30_000;
+    /** Cancelar da notificação "Enviando ao Mac": vale para o arquivo que está indo agora. */
+    private static volatile boolean cancelRequested;
     private static final ExecutorService QUEUE = Executors.newSingleThreadExecutor(r -> new Thread(r, "fileshare-files"));
 
     private FileSender() {
@@ -77,7 +79,7 @@ final class FileSender {
                 size = copy.length();
             }
             if (size > Wire.MAX_FILE_SIZE) {
-                MacSender.toast(ctx, name + " tem mais de 100 MB: não enviei");
+                MacSender.toast(ctx, name + " é grande demais: não enviei");
                 return;
             }
             MacLink link = waitForConnection();
@@ -110,24 +112,62 @@ final class FileSender {
         }
     }
 
-    private enum Result { SENT, REFUSED, FAILED }
+    private enum Result { SENT, REFUSED, FAILED, CANCELLED }
+
+    /** Botão Cancelar da notificação de envio. */
+    static void cancelCurrent() {
+        cancelRequested = true;
+    }
 
     /** Manda um arquivo com o progresso na notificação; avisa recusa e falha com um toast. */
+    private static final int MAX_ATTEMPTS = 6;
+    /** Quanto esperar o Mac voltar para continuar um arquivo que caiu no meio. */
+    private static final long RESUME_WAIT_MS = 2 * 60_000;
+
     private static Result transfer(Context ctx, MacLink link, String name, String mime, long size, InputStream in) {
         NotificationManager nm = ctx.getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Arquivos enviados ao Mac", NotificationManager.IMPORTANCE_LOW));
+        long limit = Wire.maxFileSize(link.macSupports(MacLink.Capability.BIG_FILES));
+        if (size > limit) {
+            MacSender.toast(ctx, name + " passa de " + readable(limit) + ": atualize o FileShare no Mac");
+            return Result.REFUSED;
+        }
+        cancelRequested = false;
+        long startedAt = SystemClock.elapsedRealtime();
+        // Mesmo transferId em todas as tentativas: se a conexão cair, o Mac 2.6+ continua de onde parou.
+        String transferId = Wire.newTransferId();
+        boolean resumable = in instanceof FileInputStream;
+        long[] lastUpdate = {0};
+        java.util.function.LongConsumer onProgress = sent -> {
+            long now = SystemClock.elapsedRealtime();
+            if (now - lastUpdate[0] > 300) {
+                lastUpdate[0] = now;
+                nm.notify(NOTIFICATION_ID, progress(ctx, name, sent, size));
+            }
+        };
         try {
-            long[] lastUpdate = {0};
             nm.notify(NOTIFICATION_ID, progress(ctx, name, 0, size));
-            link.sendFile(name, mime, size, in, sent -> {
-                long now = SystemClock.elapsedRealtime();
-                if (now - lastUpdate[0] > 300) {
-                    lastUpdate[0] = now;
-                    nm.notify(NOTIFICATION_ID, progress(ctx, name, sent, size));
+            for (int attempt = 1; ; attempt++) {
+                try {
+                    link.sendFile(name, mime, size, in, transferId, onProgress, () -> cancelRequested, ACK_TIMEOUT_MS);
+                    Log.i(BridgeService.TAG, "file sent to Mac: " + mime + " " + Wire.speed(size, startedAt, SystemClock.elapsedRealtime()));
+                    return Result.SENT;
+                } catch (MacLink.CancelledException | MacLink.RefusedException e) {
+                    throw e;
+                } catch (Exception e) {
+                    boolean dropped = !link.isConnected();
+                    if (!resumable || !dropped || cancelRequested || attempt >= MAX_ATTEMPTS || !link.macSupports(MacLink.Capability.RESUME)) throw e;
+                    Log.i(BridgeService.TAG, "connection dropped while sending; waiting to continue (" + e + ")");
+                    nm.notify(NOTIFICATION_ID, waiting(ctx, name));
+                    MacLink next = waitForConnection(RESUME_WAIT_MS);
+                    if (next == null) throw e;
+                    link = next;
                 }
-            }, ACK_TIMEOUT_MS);
-            Log.i(BridgeService.TAG, "file sent to Mac: " + mime + " " + size + " B");
-            return Result.SENT;
+            }
+        } catch (MacLink.CancelledException e) {
+            Log.i(BridgeService.TAG, "file send cancelled");
+            MacSender.toast(ctx, "Envio cancelado: " + name);
+            return Result.CANCELLED;
         } catch (MacLink.RefusedException e) {
             Log.w(BridgeService.TAG, "Mac refused file: " + e.getMessage());
             MacSender.toast(ctx, "O Mac recusou " + name + ": " + e.getMessage());
@@ -142,6 +182,19 @@ final class FileSender {
         } finally {
             nm.cancel(NOTIFICATION_ID);
         }
+    }
+
+    /** Conexão caiu no meio de um arquivo: espera o Mac voltar para continuar de onde parou. */
+    private static Notification waiting(Context ctx, String name) {
+        return new Notification.Builder(ctx, CHANNEL)
+                .setContentTitle("Esperando o Mac para continuar")
+                .setContentText(name + " — continua de onde parou quando ele voltar")
+                .setSmallIcon(android.R.drawable.stat_sys_upload)
+                .setProgress(0, 0, true)
+                .addAction(new Notification.Action.Builder(null, "Cancelar", TransferCancelReceiver.intent(ctx, TransferCancelReceiver.SEND)).build())
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build();
     }
 
     /**
@@ -175,7 +228,11 @@ final class FileSender {
      * espera um pouco. Devolve a conexão pronta, ou null.
      */
     private static MacLink waitForConnection() throws InterruptedException {
-        long until = SystemClock.elapsedRealtime() + CONNECT_WAIT_MS;
+        return waitForConnection(CONNECT_WAIT_MS);
+    }
+
+    private static MacLink waitForConnection(long waitMs) throws InterruptedException {
+        long until = SystemClock.elapsedRealtime() + waitMs;
         boolean woke = false;
         while (SystemClock.elapsedRealtime() < until) {
             MacLink link = MacLink.current;
@@ -196,6 +253,7 @@ final class FileSender {
                 .setContentText(name + " — " + readable(sent) + " de " + readable(total))
                 .setSmallIcon(android.R.drawable.stat_sys_upload)
                 .setProgress(100, percent, false)
+                .addAction(new Notification.Action.Builder(null, "Cancelar", TransferCancelReceiver.intent(ctx, TransferCancelReceiver.SEND)).build())
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .build();
@@ -204,6 +262,7 @@ final class FileSender {
     static String readable(long bytes) {
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
-        return String.format(Locale.forLanguageTag("pt-BR"), "%.1f MB", bytes / (1024.0 * 1024.0));
+        if (bytes < 1024L * 1024 * 1024) return String.format(Locale.forLanguageTag("pt-BR"), "%.1f MB", bytes / (1024.0 * 1024.0));
+        return String.format(Locale.forLanguageTag("pt-BR"), "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     }
 }

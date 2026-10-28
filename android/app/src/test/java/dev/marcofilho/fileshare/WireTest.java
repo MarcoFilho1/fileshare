@@ -169,6 +169,50 @@ public class WireTest {
         assertEquals(null, BridgeService.singleLink("ex.com"));
     }
 
+    /** Mesmo texto do WireTests.swift. */
+    @Test
+    public void stopMatchesMacFormat() throws IOException {
+        assertEquals("STOP 9\n", new String(Wire.messageBytes(Wire.Message.stop(9)), StandardCharsets.UTF_8));
+        assertEquals(Wire.Type.STOP, Wire.decode("STOP 9\n".getBytes(StandardCharsets.UTF_8)).type);
+    }
+
+    @Test
+    public void fileLimitDependsOnMac() {
+        assertEquals(1L << 40, Wire.maxFileSize(true));
+        assertEquals(100L * 1024 * 1024, Wire.maxFileSize(false));
+        long gb = 1024L * 1024 * 1024;
+        assertTrue(Wire.hasRoom(gb, 2 * gb));
+        assertFalse(Wire.hasRoom(gb, gb + 100L * 1024 * 1024));
+    }
+
+    /** Pasta do Mac: acentos normalizados, nada oculto, nada fora da pasta. */
+    @Test
+    public void folderEntriesAreSafe() {
+        String nfd = java.text.Normalizer.normalize("Capítulo 1/exercício.txt", java.text.Normalizer.Form.NFD);
+        assertEquals(java.util.List.of("Capítulo 1", "exercício.txt"), IncomingFolder.safePath(nfd));
+        assertEquals(null, IncomingFolder.safePath("../../.ssh/authorized_keys"));
+        assertEquals(null, IncomingFolder.safePath("a/../../b.txt"));
+        assertEquals(null, IncomingFolder.safePath("/etc/passwd"));
+        assertEquals(null, IncomingFolder.safePath("sub/.DS_Store"));
+        assertEquals(null, IncomingFolder.safePath("__MACOSX/._a.txt"));
+        assertEquals(java.util.List.of("a", "b.txt"), IncomingFolder.safePath("a\\b.txt"));
+    }
+
+    /** Mesmo texto do WireTests.swift: o nome vai por último e pode ter espaços. */
+    @Test
+    public void sendAndFromMatchMacFormat() throws IOException {
+        byte[] bytes = Wire.messageBytes(Wire.Message.send(2, 10, "abcdef0123456789", "application/pdf", "Nota de aula.pdf"));
+        assertEquals("SEND 2 10 abcdef0123456789 application/pdf Nota de aula.pdf\n", new String(bytes, StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals(Wire.Type.SEND, m.type);
+        assertEquals("abcdef0123456789", m.transferId);
+        assertEquals("Nota de aula.pdf", m.name);
+        assertEquals(10, m.size);
+        assertThrows(IOException.class, () -> Wire.decode("SEND 2 10 NAO-HEX application/pdf a.pdf\n".getBytes(StandardCharsets.UTF_8)));
+        assertEquals("FROM 2 5\n", new String(Wire.messageBytes(Wire.Message.from(2, 5)), StandardCharsets.UTF_8));
+        assertEquals(5, Wire.decode("FROM 2 5\n".getBytes(StandardCharsets.UTF_8)).size);
+    }
+
     /** Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo. */
     @Test
     public void rejectsGarbage() {

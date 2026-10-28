@@ -14,7 +14,7 @@ import java.io.OutputStream;
  * Arquivo chegando do Mac: vai direto para Download/FileShare pelo MediaStore (sem permissão de
  * armazenamento), marcado como pendente até o último pedaço, para não aparecer pela metade.
  */
-final class IncomingDownload {
+final class IncomingDownload implements Incoming {
     static final String FOLDER = Environment.DIRECTORY_DOWNLOADS + "/FileShare";
 
     final String name;
@@ -25,8 +25,10 @@ final class IncomingDownload {
     private OutputStream out;
     private long received;
 
-    IncomingDownload(Context ctx, String rawName, String mime, long size) throws IOException {
-        if (size > Wire.MAX_FILE_SIZE) throw new IOException("arquivo maior que 100 MB");
+    IncomingDownload(Context ctx, String rawName, String mime, long size, String transferId) throws IOException {
+        this.transferId = transferId;
+        if (size > Wire.MAX_FILE_SIZE) throw new IOException("arquivo grande demais");
+        if (!Wire.hasRoom(size, freeSpace())) throw new IOException("não há espaço no tablet para " + FileSender.readable(size));
         this.name = safeName(rawName);
         this.mime = mime;
         this.size = size;
@@ -45,11 +47,41 @@ final class IncomingDownload {
         }
     }
 
-    boolean isComplete() {
-        return received == size;
+    @Override
+    public String name() {
+        return name;
     }
 
-    void append(byte[] data) throws IOException {
+    @Override
+    public long size() {
+        return size;
+    }
+
+    private final long startedAt = android.os.SystemClock.elapsedRealtime();
+    private final String transferId;
+
+    @Override
+    public String transferId() {
+        return transferId;
+    }
+
+    @Override
+    public long startedAt() {
+        return startedAt;
+    }
+
+    @Override
+    public long received() {
+        return received;
+    }
+
+    /** Espaço livre no armazenamento compartilhado (onde fica Download). */
+    static long freeSpace() {
+        return new android.os.StatFs(Environment.getExternalStorageDirectory().getPath()).getAvailableBytes();
+    }
+
+    @Override
+    public void append(byte[] data) throws IOException {
         if (received + data.length > size) {
             discard();
             throw new IOException("chegou mais do que o anunciado");
@@ -74,7 +106,8 @@ final class IncomingDownload {
     }
 
     /** Conexão caiu no meio ou o arquivo foi recusado: apaga o que chegou. */
-    void discard() {
+    @Override
+    public void discard() {
         try {
             if (out != null) out.close();
         } catch (IOException ignored) {

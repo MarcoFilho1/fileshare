@@ -41,6 +41,15 @@ final class MacLink {
         /** Arquivo enviado pelo Mac, já salvo em Download/FileShare. */
         void onFile(android.net.Uri uri, String name, String mime, String macName);
 
+        /** Pasta enviada pelo Mac, já desfeita em Download/FileShare/<folder>. */
+        void onFolder(String folder, int files, String macName);
+
+        /** Arquivo grande chegando do Mac: andamento para a notificação com Cancelar. */
+        void onReceiving(String name, long received, long size);
+
+        /** O arquivo grande que chegava terminou, foi recusado ou cancelado. */
+        void onReceivingEnded();
+
         /** Conexão pronta (depois do HELLO): hora de mandar o que ficou guardado. Roda na thread da conexão. */
         void onConnected();
     }
@@ -53,6 +62,14 @@ final class MacLink {
         static final String BATTERY = "batt";
         /** Abre no navegador do Mac os links de Compartilhar → Abrir no Mac (OPEN). */
         static final String OPEN = "open";
+        /** Sem limite fixo de tamanho, só o espaço livre (antes, 100 MB). */
+        static final String BIG_FILES = "big";
+        /** Entende STOP: quem envia desistiu no meio. */
+        static final String STOP = "stop";
+        /** Desfaz pastas compactadas (Wire.FOLDER_MIME); só o tablet anuncia. */
+        static final String FOLDERS = "folder";
+        /** Entende SEND/FROM: arquivos continuam de onde pararam se a conexão cair. */
+        static final String RESUME = "resume";
 
         private Capability() {
         }
@@ -85,6 +102,18 @@ final class MacLink {
     private volatile Wire.Peer macPeer = Wire.Peer.NONE;
     /** Pedido para recomeçar a busca agora (rede mudou, tela ligou). */
     private volatile boolean wakeRequested;
+    /**
+     * Arquivos que chegavam do Mac quando a conexão caiu, pelo transferId: continuam de onde
+     * pararam quando ele mandar o SEND de novo. Só a thread da conexão mexe. Esquecidos em 24 h.
+     */
+    private final Map<String, Incoming> partials = new HashMap<>();
+    private static final long PARTIAL_LIFETIME_MS = 24 * 60 * 60_000L;
+    /** SEND mandado ao Mac, esperando o FROM com a posição para continuar. */
+    private final Map<Integer, CompletableFuture<Long>> fromWaiters = new ConcurrentHashMap<>();
+    /** Botão Cancelar da notificação "Recebendo do Mac": tratado no próximo pedaço que chegar. */
+    private volatile boolean cancelIncoming;
+    /** Arquivos menores que isto chegam rápido demais para valer uma notificação de andamento. */
+    private static final long SHOW_PROGRESS_FROM = 4L * Wire.PART_SIZE;
     /** A última sessão chegou a conectar: a próxima tentativa começa rápida, mesmo se ela caiu com erro. */
     private volatile boolean connectedOnce;
     private final Map<Integer, CompletableFuture<Void>> pending = new ConcurrentHashMap<>();
@@ -199,16 +228,43 @@ final class MacLink {
      * Envia um arquivo do menu Compartilhar: FILE com nome e tamanho, depois o conteúdo em PARTs, e
      * espera o Mac confirmar que salvou. O arquivo nunca fica inteiro na memória.
      */
-    void sendFile(String name, String mime, long size, InputStream in, LongConsumer progress, long timeoutMs) throws Exception {
+    /**
+     * Com um Mac 2.6+ e um arquivo que dá para reler de qualquer ponto (FileInputStream), vai como
+     * SEND com transferId: se a conexão cair, a próxima tentativa com o mesmo transferId continua de
+     * onde o Mac parou.
+     */
+    void sendFile(String name, String mime, long size, InputStream in, String transferId, LongConsumer progress,
+                  java.util.function.BooleanSupplier cancelled, long timeoutMs) throws Exception {
         if (!ready) throw new IOException("Mac não conectado");
         int id = nextId.getAndIncrement();
         CompletableFuture<Void> ack = new CompletableFuture<>();
         pending.put(id, ack);
+        Awake.acquire(ctx);
         try {
-            write(Wire.Message.file(id, size, mime, name));
-            byte[] buf = new byte[Wire.PART_SIZE];
             long sent = 0;
+            if (transferId != null && in instanceof java.io.FileInputStream file && macSupports(Capability.RESUME)) {
+                CompletableFuture<Long> from = new CompletableFuture<>();
+                fromWaiters.put(id, from);
+                try {
+                    write(Wire.Message.send(id, size, transferId, mime, name));
+                    sent = from.get(timeoutMs, TimeUnit.MILLISECONDS);
+                } finally {
+                    fromWaiters.remove(id);
+                }
+                if (sent > size) throw new IOException("o Mac pediu uma posição inválida");
+                file.getChannel().position(sent);
+                if (sent > 0) Log.i(BridgeService.TAG, "Mac already had " + sent + " B; continuing");
+                progress.accept(sent);
+            } else {
+                write(Wire.Message.file(id, size, mime, name));
+            }
+            byte[] buf = new byte[Wire.PART_SIZE];
             while (sent < size && !ack.isDone()) { // o Mac pode recusar no meio do caminho
+                if (cancelled.getAsBoolean()) {
+                    // Mac 2.6+ apaga o que chegou ao receber STOP; um mais antigo, ao perder a conexão
+                    if (macSupports(Capability.STOP)) write(Wire.Message.stop(id)); else repair();
+                    throw new CancelledException();
+                }
                 int n = in.read(buf, 0, (int) Math.min(buf.length, size - sent));
                 if (n < 0) throw new IOException("o arquivo acabou antes do tamanho informado");
                 write(Wire.Message.part(id, Arrays.copyOf(buf, n)));
@@ -220,7 +276,20 @@ final class MacLink {
             throw e.getCause() instanceof Exception cause ? cause : e;
         } finally {
             pending.remove(id);
+            Awake.release();
         }
+    }
+
+    /** Você cancelou o envio no meio. */
+    static final class CancelledException extends IOException {
+        CancelledException() {
+            super("cancelado");
+        }
+    }
+
+    /** Cancelar da notificação de recebimento. */
+    void cancelReceiving() {
+        cancelIncoming = true;
     }
 
     private void run() {
@@ -274,7 +343,8 @@ final class MacLink {
 
     private void session(MacFinder.Found mac, PairingStore.Pairing pairing) throws Exception {
         Socket s = new Socket();
-        Map<Integer, IncomingDownload> incoming = new HashMap<>(); // arquivos do Mac chegando, pelo id
+        Map<Integer, Incoming> incoming = new HashMap<>(); // arquivos do Mac chegando, pelo id
+        Map<Integer, Integer> reported = new HashMap<>(); // último percentual avisado, pelo id
         try {
             s.connect(new InetSocketAddress(mac.host(), mac.port()), 5000);
             s.setSoTimeout(READ_TIMEOUT_MS);
@@ -342,25 +412,74 @@ final class MacLink {
                         break;
                     case FILE:
                         try {
-                            IncomingDownload file = new IncomingDownload(ctx, m.name, m.text, m.size);
+                            Incoming file = Wire.FOLDER_MIME.equals(m.text)
+                                    ? new IncomingFolder(ctx, m.name, m.size, null)
+                                    : new IncomingDownload(ctx, m.name, m.text, m.size, null);
                             incoming.put(m.id, file);
+                            Awake.acquire(ctx);
                             if (file.isComplete()) finishDownload(m.id, incoming, hello.text);
                         } catch (IOException e) {
                             write(Wire.Message.fail(m.id, e.getMessage()));
                         }
                         break;
                     case PART: {
-                        IncomingDownload file = incoming.get(m.id);
+                        Incoming file = incoming.get(m.id);
                         if (file == null) break; // já recusado
+                        if (cancelIncoming) {
+                            cancelIncoming = false;
+                            dropIncoming(m.id, incoming, reported);
+                            write(Wire.Message.fail(m.id, "cancelado no tablet"));
+                            break;
+                        }
                         try {
                             file.append(m.data);
-                            if (file.isComplete()) finishDownload(m.id, incoming, hello.text);
+                            if (file.isComplete()) {
+                                reported.remove(m.id);
+                                finishDownload(m.id, incoming, hello.text);
+                            } else if (file.size() >= SHOW_PROGRESS_FROM) {
+                                int percent = (int) (file.received() * 100 / file.size());
+                                Integer last = reported.put(m.id, percent);
+                                if (last == null || last != percent) listener.onReceiving(file.name(), file.received(), file.size());
+                            }
                         } catch (IOException e) {
-                            incoming.remove(m.id);
+                            dropIncoming(m.id, incoming, reported);
                             write(Wire.Message.fail(m.id, e.getMessage()));
                         }
                         break;
                     }
+                    case SEND:
+                        prunePartials();
+                        try {
+                            Incoming file = partials.get(m.transferId);
+                            if (file != null && file.size() == m.size) {
+                                Log.i(BridgeService.TAG, "continuing " + file.name() + " from " + file.received() + " B");
+                            } else {
+                                if (file != null) file.discard();
+                                file = Wire.FOLDER_MIME.equals(m.text)
+                                        ? new IncomingFolder(ctx, m.name, m.size, m.transferId)
+                                        : new IncomingDownload(ctx, m.name, m.text, m.size, m.transferId);
+                                partials.put(m.transferId, file);
+                            }
+                            incoming.put(m.id, file);
+                            Awake.acquire(ctx);
+                            write(Wire.Message.from(m.id, file.received()));
+                            if (file.isComplete()) finishDownload(m.id, incoming, hello.text);
+                        } catch (IOException e) {
+                            write(Wire.Message.fail(m.id, e.getMessage()));
+                        }
+                        break;
+                    case FROM: {
+                        CompletableFuture<Long> f = fromWaiters.get(m.id);
+                        if (f != null) f.complete(m.size);
+                        break;
+                    }
+                    case STOP:
+                        // o Mac cancelou o envio deste arquivo
+                        if (incoming.containsKey(m.id)) {
+                            Log.i(BridgeService.TAG, "Mac cancelled file " + m.id);
+                            dropIncoming(m.id, incoming, reported);
+                        }
+                        break;
                     case UNKNOWN:
                         Log.i(BridgeService.TAG, "message " + m.text + " from a newer Mac; ignored");
                         break;
@@ -373,7 +492,15 @@ final class MacLink {
             if (!ready && channel != null && e instanceof EOFException) throw new SecureChannel.DecryptException();
             throw e;
         } finally {
-            for (IncomingDownload file : incoming.values()) file.discard();
+            for (Map.Entry<Integer, Incoming> e : incoming.entrySet()) {
+                // com transferId, o pedaço fica guardado para continuar quando o Mac voltar
+                if (e.getValue().transferId() == null) e.getValue().discard();
+                if (reported.containsKey(e.getKey())) listener.onReceivingEnded();
+                Awake.release();
+            }
+            incoming.clear();
+            cancelIncoming = false;
+            for (CompletableFuture<Long> f : fromWaiters.values()) f.completeExceptionally(new IOException("conexão caiu"));
             closeSocket();
             for (CompletableFuture<Void> f : pending.values()) f.completeExceptionally(new IOException("conexão caiu"));
             pending.clear();
@@ -381,16 +508,50 @@ final class MacLink {
         }
     }
 
-    private void finishDownload(int id, Map<Integer, IncomingDownload> incoming, String macName) throws IOException {
-        IncomingDownload file = incoming.remove(id);
+    /** Tira o arquivo da lista de chegando, apaga o que chegou e solta o "acordado". */
+    private void dropIncoming(int id, Map<Integer, Incoming> incoming, Map<Integer, Integer> reported) {
+        Incoming file = incoming.remove(id);
+        if (file == null) return;
+        if (file.transferId() != null) partials.remove(file.transferId());
+        file.discard();
+        if (reported.remove(id) != null) listener.onReceivingEnded();
+        Awake.release();
+    }
+
+    /** Esquece (e apaga) os pedaços guardados há mais de 24 h. */
+    private void prunePartials() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        partials.values().removeIf(f -> {
+            if (now - f.startedAt() <= PARTIAL_LIFETIME_MS) return false;
+            f.discard();
+            return true;
+        });
+    }
+
+    private void finishDownload(int id, Map<Integer, Incoming> incoming, String macName) throws IOException {
+        Incoming file = incoming.remove(id);
+        if (file.transferId() != null) partials.remove(file.transferId());
         try {
-            android.net.Uri uri = file.finish();
-            write(Wire.Message.ack(id));
-            Log.i(BridgeService.TAG, "file from Mac saved: " + file.mime + " " + file.size + " B");
-            listener.onFile(uri, file.name, file.mime, macName);
+            if (file.size() >= SHOW_PROGRESS_FROM) listener.onReceivingEnded();
+            if (file instanceof IncomingFolder folder) {
+                IncomingFolder.Result r = folder.finish();
+                write(Wire.Message.ack(id));
+                Log.i(BridgeService.TAG, "folder from Mac saved: " + r.files() + " files, "
+                        + Wire.speed(file.size(), file.startedAt(), android.os.SystemClock.elapsedRealtime()));
+                listener.onFolder(r.folder(), r.files(), macName);
+            } else {
+                IncomingDownload download = (IncomingDownload) file;
+                android.net.Uri uri = download.finish();
+                write(Wire.Message.ack(id));
+                Log.i(BridgeService.TAG, "file from Mac saved: " + download.mime + " "
+                        + Wire.speed(download.size, download.startedAt(), android.os.SystemClock.elapsedRealtime()));
+                listener.onFile(uri, download.name, download.mime, macName);
+            }
         } catch (IOException e) {
             file.discard();
-            write(Wire.Message.fail(id, "não consegui salvar no tablet"));
+            write(Wire.Message.fail(id, "não consegui salvar no tablet (" + e.getMessage() + ")"));
+        } finally {
+            Awake.release();
         }
     }
 
@@ -428,7 +589,7 @@ final class MacLink {
             version = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
         } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
         }
-        return new Wire.Peer(version, java.util.Collections.emptySet());
+        return new Wire.Peer(version, java.util.Set.of(Capability.BIG_FILES, Capability.STOP, Capability.FOLDERS, Capability.RESUME));
     }
 
     private String deviceName() {

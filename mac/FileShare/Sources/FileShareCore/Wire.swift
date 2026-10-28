@@ -53,6 +53,13 @@ public enum WireMessage: Equatable, Sendable {
     case fail(id: Int, reason: String)
     case ping
     case pong
+    /// Início de um arquivo que pode continuar de onde parou (2.6+): `transferId` é o mesmo em todas
+    /// as tentativas. Quem recebe responde FROM com quanto já tem.
+    case send(id: Int, size: Int64, transferId: String, mime: String, name: String)
+    /// Resposta ao SEND: a partir de que byte mandar (0 se for novo).
+    case from(id: Int, offset: Int64)
+    /// Quem envia o arquivo `id` desistiu no meio (botão Cancelar, 2.6+): quem recebe apaga o que chegou.
+    case stop(id: Int)
     /// Link para abrir no navegador do Mac (Compartilhar → Abrir no Mac, 2.5+); o Mac responde ACK ou FAIL.
     case open(id: Int, url: String)
     /// Bateria do tablet (0–100) e se está carregando; ele manda ao conectar e quando muda (2.4+).
@@ -67,8 +74,47 @@ public enum WireMessage: Equatable, Sendable {
 /// depois do AUTH, cada quadro vai cifrado pelo SecureChannel.
 public enum Wire {
     public static let maxPayload = 25 * 1024 * 1024
-    /// Arquivos vão em pedaços, então podem passar do limite de um quadro.
-    public static let maxFileSize: Int64 = 100 * 1024 * 1024
+    /// Arquivos vão em pedaços, então podem passar do limite de um quadro. Desde a 2.6 não há limite
+    /// fixo, só o espaço livre de quem recebe; isto é só uma trava contra tamanhos absurdos (1 TB).
+    public static let maxFileSize: Int64 = 1 << 40
+    /// Até a 2.5 o outro lado recusa arquivos acima disto.
+    public static let legacyMaxFileSize: Int64 = 100 * 1024 * 1024
+    /// Folga que fica livre no disco de quem recebe, além do arquivo.
+    public static let spareSpace: Int64 = 200 * 1024 * 1024
+    /// Tipo de um arquivo que é uma pasta compactada em zip: o tablet 2.6+ a desfaz em Download/FileShare.
+    public static let folderMime = "application/x-fileshare-folder"
+
+    /// Identificador de um arquivo entre tentativas: 8 a 64 letras hexadecimais.
+    public static func isTransferId(_ s: String) -> Bool {
+        (8...64).contains(s.count) && s.allSatisfy { $0.isHexDigit && !$0.isUppercase }
+    }
+
+    public static func newTransferId() -> String {
+        UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+    }
+
+    /// O maior arquivo que dá para mandar a este outro lado.
+    public static func maxFileSize(peerSupportsBigFiles: Bool) -> Int64 {
+        peerSupportsBigFiles ? maxFileSize : legacyMaxFileSize
+    }
+
+    /// Cabe sem lotar o disco? Deixa `spareSpace` livre depois do arquivo.
+    public static func hasRoom(for size: Int64, free: Int64) -> Bool {
+        free - size >= spareSpace
+    }
+
+    /// "1,5 GB em 303 s (5,2 MB/s)": para o log de velocidade das transferências.
+    public static func speed(_ bytes: Int64, since start: Date, now: Date = Date()) -> String {
+        let seconds = max(now.timeIntervalSince(start), 0.001)
+        let mbps = Double(bytes) / 1_048_576 / seconds
+        return "\(readable(bytes)) em \(String(format: "%.1f", seconds)) s (\(String(format: "%.1f", mbps)) MB/s)"
+    }
+
+    /// "1,5 GB", "100 MB": para as mensagens.
+    public static func readable(_ bytes: Int64) -> String {
+        // em potências de 1024, como o tablet: o limite antigo aparece como "100 MB", não "104,9 MB"
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .binary)
+    }
     public static let partSize = 512 * 1024
 
     /// Só abre páginas da web: http ou https, com endereço. Qualquer outro esquema (file:, apps…) é recusado.
@@ -117,6 +163,9 @@ public enum Wire {
         case .fail(let id, let reason): return Data("FAIL \(id) \(reason)\n".utf8)
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
+        case .stop(let id): return Data("STOP \(id)\n".utf8)
+        case .send(let id, let size, let tid, let mime, let name): return Data("SEND \(id) \(size) \(tid) \(mime) \(name)\n".utf8)
+        case .from(let id, let offset): return Data("FROM \(id) \(offset)\n".utf8)
         case .open(let id, let url): return Data("OPEN \(id) \(url)\n".utf8)
         case .battery(let level, let charging): return Data("BATT \(level) \(charging ? 1 : 0)\n".utf8)
         case .unknown(let type): return Data("\(type)\n".utf8)
@@ -160,6 +209,18 @@ public enum Wire {
             return .fail(id: id, reason: parts[2])
         case "PING": return .ping
         case "PONG": return .pong
+        case "SEND":
+            guard parts.count == 6, let id = Int(parts[1]), let size = Int64(parts[2]), size >= 0,
+                  Self.isTransferId(parts[3]), body.isEmpty else { throw DecodeError.badMessage(header) }
+            return .send(id: id, size: size, transferId: parts[3], mime: parts[4], name: parts[5])
+        case "FROM":
+            guard parts.count == 3, let id = Int(parts[1]), let offset = Int64(parts[2]), offset >= 0 else {
+                throw DecodeError.badMessage(header)
+            }
+            return .from(id: id, offset: offset)
+        case "STOP":
+            guard parts.count == 2, let id = Int(parts[1]) else { throw DecodeError.badMessage(header) }
+            return .stop(id: id)
         case "OPEN":
             guard parts.count == 3, let id = Int(parts[1]), !parts[2].isEmpty else { throw DecodeError.badMessage(header) }
             return .open(id: id, url: parts[2])
@@ -179,6 +240,7 @@ public enum Wire {
     /// Quantos cortes no cabeçalho: o último argumento (nome, mime) pode ter espaços.
     private static func argumentCount(_ header: String) -> Int {
         if header.hasPrefix("FILE ") { return 4 }
+        if header.hasPrefix("SEND ") { return 5 }
         if header.hasPrefix("HELD ") { return 3 }
         return 2
     }

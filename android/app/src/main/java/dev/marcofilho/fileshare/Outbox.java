@@ -28,7 +28,8 @@ import java.util.List;
 final class Outbox {
     static final long CLIP_TTL_MS = 10 * 60_000;
     static final long FILE_TTL_MS = 24 * 60 * 60_000L;
-    static final long MAX_BYTES = 500L * 1024 * 1024;
+    /** Cabe um arquivo do tamanho máximo; o espaço livre do tablet também é conferido. */
+    static final long MAX_BYTES = Wire.MAX_FILE_SIZE;
     private static final String CHANNEL = "outbox";
     private static final int NOTIFICATION_ID = 3;
 
@@ -87,6 +88,7 @@ final class Outbox {
         long used = 0;
         for (QueuedFile f : list(ctx)) used += f.size();
         if (used + size > MAX_BYTES) throw new IOException("a fila para o Mac já tem " + FileSender.readable(used));
+        if (!Wire.hasRoom(size, ctx.getFilesDir().getUsableSpace())) throw new IOException("falta espaço no tablet");
         long now = System.currentTimeMillis();
         File dir = new File(root(ctx), now + "-" + Integer.toHexString((int) (Math.random() * 0xffff)));
         if (!dir.mkdirs()) throw new IOException("não consegui criar " + dir);
