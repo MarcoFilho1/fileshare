@@ -8,8 +8,8 @@ Velocidades reais medidas com o FileShare, sempre com o ambiente junto: a veloci
 
 | Sentido | Velocidade efetiva | Arquivo | Ambiente |
 |---|---|---|---|
-| Mac → tablet | **30,6 MB/s** | CSV de 500 MB em 16,3 s, com compressão automática; chegou idêntico (SHA-256) | Mac e tablet em 5 GHz, canal 153 |
-| Tablet → Mac | **21,2 MB/s** | O mesmo CSV em 23,6 s; só 144 MB passaram pela rede (28%) | Igual |
+| Mac → tablet | **41,1 MB/s** | CSV de 200 MB em 4,9 s, com compressão automática (o arquivo encolhe para ~21%), arrastado até o ⇄ na gravação do vídeo de divulgação | Mac e tablet em 5 GHz, canal 153 |
+| Tablet → Mac | **21,2 MB/s** | CSV de 500 MB em 23,6 s; só 144 MB passaram pela rede (28%) | Igual |
 | Mac → tablet, arquivo que não comprime | **11,3 MB/s** | 300 MB aleatórios (como um vídeo) em 26,6 s | Igual |
 | Tablet → Mac, arquivo que não comprime | **6,2 MB/s** | 1 GB aleatório em 164,5 s | Igual |
 
@@ -43,6 +43,8 @@ Os 10 segundos pegam o começo mais lento de toda conexão, então o envio longo
 | 28/10/2026 | 2.6.0 (dev, com compressão) | Tablet → Mac | O mesmo CSV | 23,6 s | **21,2 MB/s** efetivos | Igual | Rede: 144,2 MB (28%); hash idêntico |
 | 28/10/2026 | 2.6.0 (dev, com compressão) | Mac → tablet | 300 MB aleatórios (3 vezes) | 52,1 / 28,2 / 26,6 s | 5,8 / 10,7 / 11,3 MB/s | Igual; rede crua medida em 12,7 MB/s | A 1ª foi uma oscilação do Wi-Fi; sem perda pela compressão |
 | 28/10/2026 | 2.6.0 (dev, com compressão) | Tablet → Mac | 300 MB aleatórios | 54,4 s | 5,5 MB/s | Igual | Arquivo que não comprime: vai como está |
+| 28/10/2026 | 2.6.0 (release) | Mac → tablet | CSV de vendas fictício, 200 MB (gzip -1 o deixa em 21%) | 6,4 / 5,6 / 6,2 / 6,1 / 5,9 s | 31,2 / 35,5 / 32,1 / 32,8 / 33,9 MB/s | Os dois em 5 GHz, canal 153; MacBook Air na tomada, tablet no cabo USB (carregando) | Ensaios e gravações do vídeo de divulgação; arrastado até o ⇄ |
+| 28/10/2026 | 2.6.0 (release) | Mac → tablet | O mesmo CSV de 200 MB | **4,9 s** | **41,1 MB/s** | Igual | Gravação final do vídeo; tamanho conferido no log do tablet (200,0 MB), hash não conferido |
 
 ## Aparelhos
 
@@ -59,9 +61,11 @@ Os 10 segundos pegam o começo mais lento de toda conexão, então o envio longo
 5. Anotar a banda e o canal de cada lado:
    - **Mac:** `system_profiler SPAirPortDataType`, em Current Network;
    - **tablet:** `adb shell dumpsys wifi`, em Frequency e Link speed.
-
-Para comparar: um pen drive USB 2.0 grava tipicamente entre 5 e 15 MB/s. Com os dois aparelhos em 5 GHz, o FileShare já está nessa faixa com qualquer arquivo (11,3 MB/s do Mac para o tablet), e passa dela com arquivos de texto, como CSV e planilhas (30,6 MB/s), sem cabo e criptografado.
 6. Para saber o teto da rede sem o app:
    - **tablet → Mac:** no Mac, `nc -l 5201 | wc -c`; no tablet, `adb shell "timeout 10 nc <ip-do-Mac> 5201 < /dev/zero"`;
    - **Mac → tablet:** no tablet, `adb shell "nc -l -p 5202 | wc -c"`; no Mac, `nc <ip-do-tablet> 5202 < /dev/zero`, por 10 s.
    - O `nc` do Android para cedo se lê de um pipe; use `< /dev/zero`.
+
+## Comparação
+
+Um pen drive USB 2.0 grava tipicamente entre 5 e 15 MB/s. Com os dois aparelhos em 5 GHz, o FileShare já está nessa faixa com qualquer arquivo (11,3 MB/s do Mac para o tablet), e passa dela com arquivos de texto, como CSV e planilhas (41,1 MB/s), sem cabo e criptografado.
