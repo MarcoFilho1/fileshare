@@ -152,9 +152,19 @@ public class BridgeService extends Service {
             Outbox.updateNotification(this); // fila que sobrou de antes de reiniciar
             link.start();
             networkCallback = new ConnectivityManager.NetworkCallback() {
+                private Network current;
+
                 @Override
                 public void onAvailable(Network network) {
-                    link.wake();
+                    // Trocou de rede (ex.: 2,4 GHz → 5 GHz): a conexão antiga morreu, mas só daria
+                    // erro depois do tempo de leitura. Larga já e reencontra o Mac em segundos.
+                    if (current != null && !current.equals(network)) {
+                        Log.i(TAG, "network changed; reconnecting");
+                        link.repair();
+                    } else {
+                        link.wake();
+                    }
+                    current = network;
                 }
             };
             getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(networkCallback);
