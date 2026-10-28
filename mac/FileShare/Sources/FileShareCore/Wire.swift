@@ -1,10 +1,45 @@
 import Foundation
 
+/// O que cada lado anuncia no HELLO: a versão do app e os recursos que ele entende. Vai no corpo
+/// do HELLO, que as versões até a 2.3 ignoram; para elas, isto chega vazio.
+public struct PeerInfo: Equatable, Sendable {
+    public var version: String
+    public var capabilities: Set<String>
+
+    public init(version: String = "", capabilities: Set<String> = []) {
+        self.version = version
+        self.capabilities = capabilities
+    }
+
+    /// Só envie uma mensagem nova se o outro lado anunciou que a entende: um app antigo derruba a
+    /// conexão ao receber um tipo que não conhece.
+    public func supports(_ capability: String) -> Bool { capabilities.contains(capability) }
+
+    /// Linhas "chave=valor"; chaves desconhecidas são ignoradas, para poder crescer depois.
+    var body: Data {
+        guard !version.isEmpty || !capabilities.isEmpty else { return Data() }
+        return Data("v=\(version)\ncaps=\(capabilities.sorted().joined(separator: ","))\n".utf8)
+    }
+
+    init(body: Data) {
+        self.init()
+        for line in String(decoding: body, as: UTF8.self).split(separator: "\n") {
+            let kv = line.split(separator: "=", maxSplits: 1).map(String.init)
+            guard kv.count == 2 else { continue }
+            switch kv[0] {
+            case "v": version = kv[1]
+            case "caps": capabilities = Set(kv[1].split(separator: ",").map(String.init).filter { !$0.isEmpty })
+            default: break
+            }
+        }
+    }
+}
+
 /// Mensagens trocadas numa conexão permanente entre Mac e tablet.
 public enum WireMessage: Equatable, Sendable {
     /// Única mensagem em claro: o nonce de cada lado para derivar as chaves da sessão.
     case auth(nonce: Data)
-    case hello(name: String)
+    case hello(name: String, info: PeerInfo = PeerInfo())
     case clip(id: Int, payload: ClipPayload)
     /// Cópia que o Mac guardou enquanto o tablet estava desconectado, com o horário em que foi feita
     /// (ms desde 1970), para o tablet não sobrescrever algo que o usuário copiou lá depois.
@@ -18,6 +53,10 @@ public enum WireMessage: Equatable, Sendable {
     case fail(id: Int, reason: String)
     case ping
     case pong
+    /// Tipo que esta versão não conhece (de uma versão mais nova do outro lado): quem recebe ignora,
+    /// em vez de derrubar a conexão. Para crescer o protocolo, crie tipos novos em vez de mudar os
+    /// argumentos dos que já existem.
+    case unknown(type: String)
 }
 
 /// Formato: [tamanho: UInt32 big-endian][quadro]. O quadro é a mensagem "TIPO args\n" + corpo;
@@ -49,7 +88,7 @@ public enum Wire {
     public static func messageBytes(_ message: WireMessage) -> Data {
         switch message {
         case .auth(let nonce): return Data("AUTH \(nonce.base64EncodedString())\n".utf8)
-        case .hello(let name): return Data("HELLO \(name)\n".utf8)
+        case .hello(let name, let info): return Data("HELLO \(name)\n".utf8) + info.body
         case .clip(let id, let payload):
             var d = Data("CLIP \(id) \(payload.mime)\n".utf8)
             d.append(payload.data)
@@ -67,6 +106,7 @@ public enum Wire {
         case .fail(let id, let reason): return Data("FAIL \(id) \(reason)\n".utf8)
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
+        case .unknown(let type): return Data("\(type)\n".utf8)
         }
     }
 
@@ -82,7 +122,7 @@ public enum Wire {
             }
             return .auth(nonce: nonce)
         case "HELLO":
-            return .hello(name: parts.count > 1 ? header.dropFirst(6).description : "")
+            return .hello(name: parts.count > 1 ? header.dropFirst(6).description : "", info: PeerInfo(body: body))
         case "CLIP":
             guard parts.count == 3, let id = Int(parts[1]), !body.isEmpty else { throw DecodeError.badMessage(header) }
             return .clip(id: id, payload: ClipPayload(mime: parts[2], data: body))
@@ -107,7 +147,11 @@ public enum Wire {
             return .fail(id: id, reason: parts[2])
         case "PING": return .ping
         case "PONG": return .pong
-        default: throw DecodeError.badMessage(header)
+        default:
+            // Um tipo novo é uma palavra em maiúsculas; qualquer outra coisa é lixo.
+            guard let type = parts.first, !type.isEmpty, type.count <= 16,
+                  type.unicodeScalars.allSatisfy({ ("A"..."Z").contains($0) }) else { throw DecodeError.badMessage(header) }
+            return .unknown(type: type)
         }
     }
 

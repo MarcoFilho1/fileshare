@@ -2,6 +2,8 @@ package dev.marcofilho.fileshare;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThrows;
 
 import java.io.ByteArrayInputStream;
@@ -117,8 +119,52 @@ public class WireTest {
         assertThrows(IOException.class, () -> Wire.read(in));
     }
 
+    /** Um tipo de uma versão mais nova não derruba a conexão: vira UNKNOWN e é ignorado. */
     @Test
-    public void rejectsUnknownMessage() {
-        assertThrows(IOException.class, () -> Wire.decode("HACK\n".getBytes(StandardCharsets.UTF_8)));
+    public void toleratesMessageFromNewerVersion() throws IOException {
+        Wire.Message m = Wire.decode("BATT 72 charging\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals(Wire.Type.UNKNOWN, m.type);
+        assertEquals("BATT", m.text);
+        assertEquals("NOTIF", Wire.decode("NOTIF\ncorpo qualquer".getBytes(StandardCharsets.UTF_8)).text);
+    }
+
+    /** Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo. */
+    @Test
+    public void rejectsGarbage() {
+        for (String text : new String[]{"hack 1\n", "\n", "BATT1 2\n", "ÇÃO\n", "UMTIPOMUITOCOMPRIDO\n"}) {
+            assertThrows(text, IOException.class, () -> Wire.decode(text.getBytes(StandardCharsets.UTF_8)));
+        }
+    }
+
+    /** Mesmo texto do WireTests.swift: versão e recursos vão no corpo do HELLO. */
+    @Test
+    public void helloInfoMatchesMacFormat() throws IOException {
+        Wire.Peer peer = new Wire.Peer("2.4.0", new java.util.HashSet<>(java.util.Arrays.asList("held", "batt")));
+        byte[] bytes = Wire.messageBytes(Wire.Message.hello("Marco MacBook Air", peer));
+        assertEquals("HELLO Marco MacBook Air\nv=2.4.0\ncaps=batt,held\n", new String(bytes, StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals("Marco MacBook Air", m.text);
+        assertEquals("2.4.0", m.peer.version);
+        assertTrue(m.peer.supports("batt"));
+        assertTrue(m.peer.supports("held"));
+    }
+
+    /** Até a 2.3 o HELLO não tem corpo: o outro lado fica sem versão e sem recursos. */
+    @Test
+    public void helloFromOldVersionHasNoInfo() throws IOException {
+        Wire.Message m = Wire.decode("HELLO Marco MacBook Air\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals("Marco MacBook Air", m.text);
+        assertEquals("", m.peer.version);
+        assertFalse(m.peer.supports("batt"));
+        // e o tablet novo sem recursos também manda um HELLO que a 2.3 entende
+        assertEquals("HELLO Tab\n", new String(Wire.messageBytes(Wire.Message.hello("Tab")), StandardCharsets.UTF_8));
+    }
+
+    /** Chaves desconhecidas no corpo do HELLO são ignoradas, para o formato poder crescer. */
+    @Test
+    public void helloIgnoresUnknownKeys() throws IOException {
+        Wire.Message m = Wire.decode("HELLO Tab\nv=2.6.0\ntema=escuro\ncaps=batt,,hist\nlixo\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals("2.6.0", m.peer.version);
+        assertEquals(new java.util.TreeSet<>(java.util.Arrays.asList("batt", "hist")), m.peer.capabilities);
     }
 }
