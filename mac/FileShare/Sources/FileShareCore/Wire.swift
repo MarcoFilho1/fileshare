@@ -53,6 +53,8 @@ public enum WireMessage: Equatable, Sendable {
     case fail(id: Int, reason: String)
     case ping
     case pong
+    /// Link para abrir no navegador do Mac (Compartilhar → Abrir no Mac, 2.5+); o Mac responde ACK ou FAIL.
+    case open(id: Int, url: String)
     /// Bateria do tablet (0–100) e se está carregando; ele manda ao conectar e quando muda (2.4+).
     case battery(level: Int, charging: Bool)
     /// Tipo que esta versão não conhece (de uma versão mais nova do outro lado): quem recebe ignora,
@@ -68,6 +70,13 @@ public enum Wire {
     /// Arquivos vão em pedaços, então podem passar do limite de um quadro.
     public static let maxFileSize: Int64 = 100 * 1024 * 1024
     public static let partSize = 512 * 1024
+
+    /// Só abre páginas da web: http ou https, com endereço. Qualquer outro esquema (file:, apps…) é recusado.
+    public static func webURL(_ text: String) -> URL? {
+        guard text.count <= 8192, let url = URL(string: text), let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https", let host = url.host, !host.isEmpty else { return nil }
+        return url
+    }
     static let maxFrame = maxPayload + 1024
 
     public enum DecodeError: Error, Equatable {
@@ -108,6 +117,7 @@ public enum Wire {
         case .fail(let id, let reason): return Data("FAIL \(id) \(reason)\n".utf8)
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
+        case .open(let id, let url): return Data("OPEN \(id) \(url)\n".utf8)
         case .battery(let level, let charging): return Data("BATT \(level) \(charging ? 1 : 0)\n".utf8)
         case .unknown(let type): return Data("\(type)\n".utf8)
         }
@@ -150,6 +160,9 @@ public enum Wire {
             return .fail(id: id, reason: parts[2])
         case "PING": return .ping
         case "PONG": return .pong
+        case "OPEN":
+            guard parts.count == 3, let id = Int(parts[1]), !parts[2].isEmpty else { throw DecodeError.badMessage(header) }
+            return .open(id: id, url: parts[2])
         case "BATT":
             guard parts.count == 3, let level = Int(parts[1]), (0...100).contains(level), ["0", "1"].contains(parts[2]) else {
                 throw DecodeError.badMessage(header)

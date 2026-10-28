@@ -51,6 +51,8 @@ final class MacLink {
         static final String HELD = "held";
         /** Mostra a bateria do tablet (BATT) no painel. */
         static final String BATTERY = "batt";
+        /** Abre no navegador do Mac os links de Compartilhar → Abrir no Mac (OPEN). */
+        static final String OPEN = "open";
 
         private Capability() {
         }
@@ -154,6 +156,15 @@ final class MacLink {
     /** Envia ao Mac e espera a confirmação. */
     void send(String mime, byte[] data, long timeoutMs) throws Exception {
         sendAndWait(id -> Wire.Message.clip(id, mime, data), timeoutMs);
+    }
+
+    /** Pede ao Mac para abrir o link no navegador e espera a confirmação (ou o FAIL, com o motivo). */
+    void sendOpen(String url, long timeoutMs) throws Exception {
+        try {
+            sendAndWait(id -> Wire.Message.open(id, url), timeoutMs);
+        } catch (ExecutionException e) {
+            throw e.getCause() instanceof Exception cause ? cause : e;
+        }
     }
 
     /** Nível da bateria para o painel do Mac; sem confirmação, e só se ele anunciou Capability.BATTERY. */

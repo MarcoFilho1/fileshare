@@ -110,6 +110,14 @@ In Samsung Notes (or any app), tap **⋮ → Share** and pick your Mac in the to
   <img alt="In Samsung Notes, the three-dot menu opens, Share is tapped, the share sheet shows the Mac next to Link to Windows, the Mac is tapped and a notice arrives on the Mac" src="docs/media/pdf.gif" width="800">
 </p>
 
+### Your latest copies at hand
+
+The panel's **Copies** tab keeps the last 10 copies you exchanged, with image thumbnails and where each came from. Click one and it becomes the current copy on the Mac and the tablet again. It lives only in memory and has a **Clear** button.
+
+### Links that open on the other device
+
+On the tablet, **Share → Open on Mac** opens the page in the Mac's browser. Copy a link on the Mac and the tablet shows a **Link from the Mac** notice with **Open**. Only web links (http/https) are opened.
+
 ### A panel that feels like part of macOS
 
 Click ⇄ for a panel in the manner of Control Center: the tablet, its connection and battery, round toggles for **Sync** (pause) and **Open at Login**, recent activity with file progress, and shortcuts to send a file or open what you received.

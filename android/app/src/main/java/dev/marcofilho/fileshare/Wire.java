@@ -27,7 +27,7 @@ final class Wire {
     static final long MAX_FILE_SIZE = 100L * 1024 * 1024;
     static final int PART_SIZE = 512 * 1024;
 
-    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, UNKNOWN }
+    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, OPEN, UNKNOWN }
 
     /**
      * O que cada lado anuncia no HELLO: a versão do app e os recursos que ele entende. Vai no corpo
@@ -115,6 +115,8 @@ final class Wire {
         static Message pong() { return new Message(Type.PONG, 0, null, null); }
         /** Bateria do tablet: id é o nível (0–100), copiedAt 1 se está carregando. Só para Mac com "batt". */
         static Message battery(int level, boolean charging) { return new Message(Type.BATT, level, null, null, charging ? 1 : 0, 0, null); }
+        /** Link para abrir no navegador do Mac (text); só para Mac com "open". Ele responde ACK ou FAIL. */
+        static Message open(int id, String url) { return new Message(Type.OPEN, id, url, null); }
         /** Tipo de uma versão mais nova do Mac; text é o nome do tipo. */
         static Message unknown(String type) { return new Message(Type.UNKNOWN, 0, type, null); }
     }
@@ -148,6 +150,7 @@ final class Wire {
             case FAIL: header = "FAIL " + m.id + " " + m.text + "\n"; break;
             case PING: header = "PING\n"; break;
             case PONG: header = "PONG\n"; break;
+            case OPEN: header = "OPEN " + m.id + " " + m.text + "\n"; break;
             case BATT: header = "BATT " + m.id + " " + m.copiedAt + "\n"; break;
             default: header = m.text + "\n"; break; // UNKNOWN: só nos testes
         }
@@ -212,6 +215,9 @@ final class Wire {
                     return Message.fail(Integer.parseInt(parts[1]), parts[2]);
                 case "PING": return Message.ping();
                 case "PONG": return Message.pong();
+                case "OPEN":
+                    if (parts.length != 3 || parts[2].isEmpty()) break;
+                    return Message.open(Integer.parseInt(parts[1]), parts[2]);
                 case "BATT": {
                     if (parts.length != 3 || !parts[2].matches("[01]")) break;
                     int level = Integer.parseInt(parts[1]);

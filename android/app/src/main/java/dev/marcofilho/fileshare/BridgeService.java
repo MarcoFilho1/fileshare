@@ -36,6 +36,8 @@ public class BridgeService extends Service {
     static final String TAG = "FileShare";
     static final String CLIP_LABEL = "FileShare";
     private static final String FILES_CHANNEL = "received-files";
+    private static final String LINKS_CHANNEL = "links";
+    private static final int LINK_NOTIFICATION_ID = 4;
     private static final int NOTIFICATION_ID = 1;
     private static final int MAX_CACHED_IMAGES = 10;
 
@@ -50,6 +52,8 @@ public class BridgeService extends Service {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private MacLink link;
+    /** Texto atual da notificação fixa ("Conectado ao…", "Procurando…"). */
+    private volatile String lastState = "Procurando o Mac no Wi-Fi…";
     private ConnectivityManager.NetworkCallback networkCallback;
     /** Último nível de bateria mandado ao Mac (-1: nenhum nesta conexão); só a thread principal mexe. */
     private int sentBatteryLevel = -1;
@@ -71,7 +75,8 @@ public class BridgeService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel("bridge", "Conexão com o Mac", NotificationManager.IMPORTANCE_LOW));
-        startForeground(NOTIFICATION_ID, notification("Procurando o Mac no Wi-Fi…"),
+        // o serviço é chamado de novo (acessibilidade, botão…) com a conexão já de pé: mantém o estado atual
+        startForeground(NOTIFICATION_ID, notification(lastState),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
         if (link == null) {
             link = new MacLink(this, new MacLink.Listener() {
@@ -91,6 +96,7 @@ public class BridgeService extends Service {
 
                 @Override
                 public void onState(String state) {
+                    lastState = state;
                     nm.notify(NOTIFICATION_ID, notification(state));
                     main.post(() -> {
                         Runnable listener = statusListener;
@@ -184,6 +190,8 @@ public class BridgeService extends Service {
         if (mime.startsWith("text/")) {
             String text = new String(data, StandardCharsets.UTF_8);
             main.post(() -> setClip(ClipData.newPlainText(CLIP_LABEL, text), "text " + text.length() + " chars"));
+            String link = singleLink(text);
+            if (link != null) notifyLink(link);
             return;
         }
         try {
@@ -199,6 +207,42 @@ public class BridgeService extends Service {
         } catch (IOException e) {
             Log.e(TAG, "could not store image from Mac", e);
         }
+    }
+
+    /** O texto é só um link da web (o que se copia na barra de endereço)? Devolve o link, ou null. */
+    static String singleLink(String text) {
+        String t = text.trim();
+        if (t.length() > 8192 || t.isEmpty() || t.chars().anyMatch(Character::isWhitespace)) return null;
+        try {
+            java.net.URI uri = new java.net.URI(t);
+            String scheme = uri.getScheme();
+            if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) return null;
+            return uri.getHost() == null || uri.getHost().isEmpty() ? null : t;
+        } catch (java.net.URISyntaxException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Link copiado no Mac: além de colar, dá para abrir aqui com um toque. Notificação silenciosa,
+     * uma só (o link novo substitui o anterior), que some sozinha depois de 10 minutos.
+     */
+    private void notifyLink(String link) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.createNotificationChannel(new NotificationChannel(LINKS_CHANNEL, "Links copiados no Mac", NotificationManager.IMPORTANCE_LOW));
+        Intent view = new Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent open = PendingIntent.getActivity(this, LINK_NOTIFICATION_ID, view,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        Uri uri = Uri.parse(link);
+        nm.notify(LINK_NOTIFICATION_ID, new Notification.Builder(this, LINKS_CHANNEL)
+                .setContentTitle("Link do Mac")
+                .setContentText(uri.getHost() + uri.getPath())
+                .setSmallIcon(R.drawable.ic_stat_fileshare)
+                .setContentIntent(open)
+                .addAction(new Notification.Action.Builder(null, "Abrir", open).build())
+                .setAutoCancel(true)
+                .setTimeoutAfter(10 * 60_000)
+                .build());
     }
 
     private void setClip(ClipData clip, String what) {
