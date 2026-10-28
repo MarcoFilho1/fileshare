@@ -11,10 +11,10 @@
 <title>FileShare · seu Mac e seu tablet, juntos</title>
 <link rel="icon" href="favicon.png">
 <link rel="preload" href="fonts/InterTight.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=9c066450">
-<link rel="stylesheet" href="scenes.css?v=9c066450">
-<script src="lang.js?v=9c066450"></script>
-<script src="app.js?v=9c066450" defer></script>
+<link rel="stylesheet" href="style.css?v=f0b4729d">
+<link rel="stylesheet" href="scenes.css?v=f0b4729d">
+<script src="lang.js?v=f0b4729d"></script>
+<script src="app.js?v=f0b4729d" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -49,7 +49,7 @@
 <div class="banner" id="banner">
   <div class="in">
     <span class="tag">★ <span lang="pt">NOVO</span><span lang="en">NEW</span></span>
-    <span><span lang="pt">v2.3.0: instale pelo site e pareie lendo o QR code com a câmera do tablet</span><span lang="en">v2.3.0: install from the website and pair by scanning the QR code with your tablet's camera</span></span>
+    <span><span lang="pt">v2.4.0: o tablet guarda o que vai para o Mac quando ele está longe, e a bateria do tablet aparece no Mac</span><span lang="en">v2.4.0: the tablet keeps what's going to the Mac while it's away, and the tablet's battery shows on the Mac</span></span>
     <span class="sep" aria-hidden="true">·</span>
     <a href="https://github.com/MarcoFilho1/fileshare/releases/latest" target="_blank" rel="noopener"><span lang="pt">Ver novidades →</span><span lang="en">What's new →</span></a>
     <button class="x" type="button" aria-label="Fechar / Close">×</button>
@@ -350,13 +350,13 @@
     </div>
     <div class="rail-wrap"><div class="rail" id="rail">
       <article class="fcard">
-        <h3><span lang="pt">Tablet dormindo? Espera.</span><span lang="en">Tablet asleep? It waits.</span></h3>
-        <p><span lang="pt">O Mac guarda a última cópia por até 10 minutos e os arquivos ficam na fila até o tablet acordar.</span><span lang="en">The Mac keeps your last copy for up to 10 minutes, and files wait in a queue until the tablet wakes.</span></p>
-        <div class="vis queue"><div class="w"><i>◷</i><span lang="pt">Aula 7.pdf · espera o tablet</span><span lang="en">Class 7.pdf · waiting for tablet</span></div><div class="d"><i>✓</i><span lang="pt">Entregue ao acordar</span><span lang="en">Delivered on wake</span></div></div>
+        <h3><span lang="pt">Um longe do outro? Espera.</span><span lang="en">Out of reach? It waits.</span></h3>
+        <p><span lang="pt">Nos dois sentidos: a última cópia fica guardada por até 10 minutos e os arquivos esperam na fila até o outro voltar.</span><span lang="en">Both ways: your last copy is kept for up to 10 minutes and files wait in a queue until the other one is back.</span></p>
+        <div class="vis queue"><div class="w"><i>◷</i><span lang="pt">Aula 7.pdf · espera o tablet</span><span lang="en">Class 7.pdf · waiting for tablet</span></div><div class="d"><i>✓</i><span lang="pt">Entregue ao voltar</span><span lang="en">Delivered when back</span></div></div>
       </article>
       <article class="fcard blue">
         <h3><span lang="pt">Um painel que parece do macOS</span><span lang="en">A panel that feels like macOS</span></h3>
-        <p><span lang="pt">Clique no ⇄ para pausar, abrir ao iniciar e ver a atividade recente, no estilo da Central de Controle.</span><span lang="en">Click ⇄ to pause, open at login and see recent activity, in the manner of Control Center.</span></p>
+        <p><span lang="pt">Clique no ⇄ para ver a bateria do tablet, pausar, abrir ao iniciar e ver a atividade recente, no estilo da Central de Controle.</span><span lang="en">Click ⇄ to see the tablet's battery, pause, open at login and see recent activity, in the manner of Control Center.</span></p>
         <div class="vis toggle-art">
           <div><i><svg><use href="#i-arrows"/></svg></i><span>Sync<small><span lang="pt">Ligado</span><span lang="en">On</span></small></span></div>
           <div><i><svg><use href="#i-power"/></svg></i><span><span lang="pt">Abrir ao iniciar</span><span lang="en">Open at Login</span><small><span lang="pt">Ligado</span><span lang="en">On</span></small></span></div>
@@ -464,8 +464,8 @@
           <div class="answer"><div><span lang="pt">Pela área de transferência: <b>texto e imagens</b>, inclusive prints do Mac (⌘⇧4). Como arquivo: PDFs, fotos, documentos e o que mais quiser, <b>até 100 MB cada</b>. Cópias feitas em gerenciadores de senha são ignoradas de propósito.</span><span lang="en">Through the clipboard: <b>text and images</b>, Mac screenshots (⌘⇧4) included. As files: PDFs, photos, documents and anything else, <b>up to 100 MB each</b>. Copies from password managers are ignored on purpose.</span></div></div>
         </details>
         <details>
-          <summary><span lang="pt">E se o tablet estiver dormindo?</span><span lang="en">What if the tablet is asleep?</span><span class="plus"></span></summary>
-          <div class="answer"><div><span lang="pt">O Mac guarda a última cópia por até 10 minutos e os arquivos ficam na fila. Assim que você liga a tela do tablet, ele reconecta e recebe tudo, desde que o FileShare continue aberto no Mac.</span><span lang="en">The Mac keeps your last copy for up to 10 minutes and files wait in a queue. As soon as you turn the tablet's screen on, it reconnects and gets everything, as long as FileShare is still running on the Mac.</span></div></div>
+          <summary><span lang="pt">E se o tablet estiver dormindo ou o Mac estiver longe?</span><span lang="en">What if the tablet is asleep or the Mac is away?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Nada se perde. Quem envia guarda a última cópia por até 10 minutos, e os arquivos ficam na fila: no Mac até o tablet acordar, no tablet por até 24 horas, com um aviso "Esperando o Mac" e o botão Cancelar. Quando os dois se encontram de novo na rede, em poucos segundos, tudo é entregue. Se você copiou algo mais novo enquanto isso, a sua cópia mais nova é que fica.</span><span lang="en">Nothing is lost. The sender keeps your last copy for up to 10 minutes and files wait in a queue: on the Mac until the tablet wakes, on the tablet for up to 24 hours, with a "Waiting for the Mac" notice and a Cancel button. As soon as they find each other on the network again, within seconds, everything is delivered. If you copied something newer in the meantime, your newer copy stays.</span></div></div>
         </details>
         <details>
           <summary><span lang="pt">Onde ficam os arquivos recebidos?</span><span lang="en">Where do received files go?</span><span class="plus"></span></summary>

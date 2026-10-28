@@ -15,6 +15,7 @@ import android.content.pm.ServiceInfo;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -50,6 +51,15 @@ public class BridgeService extends Service {
     private final Handler main = new Handler(Looper.getMainLooper());
     private MacLink link;
     private ConnectivityManager.NetworkCallback networkCallback;
+    /** Último nível de bateria mandado ao Mac (-1: nenhum nesta conexão); só a thread principal mexe. */
+    private int sentBatteryLevel = -1;
+    private boolean sentCharging;
+    private final BroadcastReceiver battery = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context ctx, Intent intent) {
+            sendBattery(intent, false);
+        }
+    };
     private final BroadcastReceiver screenOn = new BroadcastReceiver() {
         @Override
         public void onReceive(Context ctx, Intent intent) {
@@ -92,7 +102,20 @@ public class BridgeService extends Service {
                 public void onFile(Uri uri, String name, String mime, String macName) {
                     notifyFile(uri, name, mime, macName);
                 }
+
+                @Override
+                public void onConnected() {
+                    // Em outra thread: a entrega espera a confirmação, que chega pela thread da conexão.
+                    MacLink current = link;
+                    // bateria logo ao conectar, mesmo sem mudança desde a última conexão
+                    main.post(() -> sendBattery(registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED)), true));
+                    new Thread(() -> {
+                        MacSender.deliverHeld(BridgeService.this, current);
+                        FileSender.drainOutbox(BridgeService.this);
+                    }, "fileshare-outbox").start();
+                }
             });
+            Outbox.updateNotification(this); // fila que sobrou de antes de reiniciar
             link.start();
             networkCallback = new ConnectivityManager.NetworkCallback() {
                 @Override
@@ -104,9 +127,29 @@ public class BridgeService extends Service {
             IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_ON);
             f.addAction(Intent.ACTION_USER_PRESENT);
             registerReceiver(screenOn, f, RECEIVER_NOT_EXPORTED);
+            registerReceiver(battery, new IntentFilter(Intent.ACTION_BATTERY_CHANGED), RECEIVER_NOT_EXPORTED);
         }
         ShareTargets.update(this);
         return START_STICKY;
+    }
+
+    /**
+     * Manda o nível ao Mac quando a porcentagem ou o carregamento muda (o sistema avisa também por
+     * temperatura e tensão, que não interessam). Na thread principal; a rede vai em outra thread.
+     */
+    private void sendBattery(Intent intent, boolean force) {
+        MacLink current = link;
+        if (intent == null || current == null || !current.isConnected()) return;
+        int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+        if (level < 0 || scale <= 0) return;
+        int percent = Math.round(level * 100f / scale);
+        int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+        if (!force && percent == sentBatteryLevel && charging == sentCharging) return;
+        sentBatteryLevel = percent;
+        sentCharging = charging;
+        new Thread(() -> current.sendBattery(percent, charging), "fileshare-battery").start();
     }
 
     private Notification notification(String text) {
@@ -180,6 +223,7 @@ public class BridgeService extends Service {
         if (networkCallback != null) {
             getSystemService(ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
             unregisterReceiver(screenOn);
+            unregisterReceiver(battery);
         }
         if (link != null) link.stop();
         super.onDestroy();

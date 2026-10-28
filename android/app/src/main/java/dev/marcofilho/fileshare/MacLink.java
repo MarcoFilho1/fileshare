@@ -40,11 +40,31 @@ final class MacLink {
 
         /** Arquivo enviado pelo Mac, já salvo em Download/FileShare. */
         void onFile(android.net.Uri uri, String name, String mime, String macName);
+
+        /** Conexão pronta (depois do HELLO): hora de mandar o que ficou guardado. Roda na thread da conexão. */
+        void onConnected();
+    }
+
+    /** Recursos que o Mac pode anunciar no HELLO. */
+    static final class Capability {
+        /** Aceita HELD: a cópia que o tablet guardou enquanto o Mac estava longe. */
+        static final String HELD = "held";
+        /** Mostra a bateria do tablet (BATT) no painel. */
+        static final String BATTERY = "batt";
+
+        private Capability() {
+        }
     }
 
     private static final int PING_MS = 20_000;
     private static final int READ_TIMEOUT_MS = 60_000;
     private static final long MAX_BACKOFF_MS = 30_000;
+    /**
+     * Sem o Mac, o tablet fica escutando a rede quase o tempo todo (janelas de 45 s com 1 s de
+     * pausa), para pegar o anúncio do Mac assim que ele volta. O Android espaça sozinho as
+     * perguntas na rede, então escutar custa pouco.
+     */
+    private static final long FIND_MS = 45_000;
     private static final long UNPAIRED_WAIT_MS = 60_000;
 
     static volatile MacLink current;
@@ -59,6 +79,12 @@ final class MacLink {
     private final Context ctx;
     private final Listener listener;
     private final AtomicInteger nextId = new AtomicInteger(1);
+    /** Versão e recursos que o Mac anunciou no HELLO (vazio até a 2.3). */
+    private volatile Wire.Peer macPeer = Wire.Peer.NONE;
+    /** Pedido para recomeçar a busca agora (rede mudou, tela ligou). */
+    private volatile boolean wakeRequested;
+    /** A última sessão chegou a conectar: a próxima tentativa começa rápida, mesmo se ela caiu com erro. */
+    private volatile boolean connectedOnce;
     private final Map<Integer, CompletableFuture<Void>> pending = new ConcurrentHashMap<>();
     private final Object sleepLock = new Object();
     private volatile boolean running;
@@ -91,6 +117,7 @@ final class MacLink {
 
     /** Rede mudou: tenta de novo agora em vez de esperar o fim da espera. */
     void wake() {
+        wakeRequested = true;
         synchronized (sleepLock) {
             sleepLock.notifyAll();
         }
@@ -119,14 +146,38 @@ final class MacLink {
         return ready;
     }
 
+    /** O Mac desta conexão anunciou o recurso? Até a 2.3 ele não anuncia nenhum. */
+    boolean macSupports(String capability) {
+        return macPeer.supports(capability);
+    }
+
     /** Envia ao Mac e espera a confirmação. */
     void send(String mime, byte[] data, long timeoutMs) throws Exception {
+        sendAndWait(id -> Wire.Message.clip(id, mime, data), timeoutMs);
+    }
+
+    /** Nível da bateria para o painel do Mac; sem confirmação, e só se ele anunciou Capability.BATTERY. */
+    void sendBattery(int level, boolean charging) {
+        if (!ready || !macSupports(Capability.BATTERY)) return;
+        try {
+            write(Wire.Message.battery(level, charging));
+        } catch (IOException e) {
+            Log.w(BridgeService.TAG, "battery not sent: " + e);
+        }
+    }
+
+    /** Cópia guardada com o Mac longe, feita em copiedAt (ms); só para um Mac com Capability.HELD. */
+    void sendHeld(String mime, byte[] data, long copiedAt, long timeoutMs) throws Exception {
+        sendAndWait(id -> Wire.Message.held(id, copiedAt, mime, data), timeoutMs);
+    }
+
+    private void sendAndWait(java.util.function.IntFunction<Wire.Message> message, long timeoutMs) throws Exception {
         if (!ready) throw new IOException("Mac não conectado");
         int id = nextId.getAndIncrement();
         CompletableFuture<Void> ack = new CompletableFuture<>();
         pending.put(id, ack);
         try {
-            write(Wire.Message.clip(id, mime, data));
+            write(message.apply(id));
             ack.get(timeoutMs, TimeUnit.MILLISECONDS);
         } finally {
             pending.remove(id);
@@ -165,6 +216,7 @@ final class MacLink {
         long backoff = 1000;
         while (running) {
             long wait;
+            boolean found = false;
             PairingStore.Pairing pairing = PairingStore.load(ctx);
             if (pairing == null) {
                 listener.onState("Não pareado: no Mac, use \"Parear tablet…\" e leia o QR");
@@ -172,11 +224,10 @@ final class MacLink {
             } else {
                 try {
                     listener.onState("Procurando o " + pairing.macName() + " no Wi-Fi…");
-                    MacFinder.Found mac = MacFinder.find(ctx, pairing.macId(), 15_000);
-                    if (mac != null) {
-                        session(mac, pairing);
-                        backoff = 1000; // estava conectado: a próxima tentativa começa rápida
-                    }
+                    wakeRequested = false;
+                    MacFinder.Found mac = MacFinder.find(ctx, pairing.macId(), FIND_MS, () -> wakeRequested || !running);
+                    found = mac != null;
+                    if (found) session(mac, pairing);
                     if (running) listener.onState(pairing.macName() + " não encontrado; tentando de novo");
                 } catch (SecureChannel.DecryptException e) {
                     Log.w(BridgeService.TAG, "pairing key rejected");
@@ -188,8 +239,16 @@ final class MacLink {
                     Log.w(BridgeService.TAG, "link error: " + e);
                     if (running) listener.onState(pairing.macName() + " não encontrado; tentando de novo");
                 }
-                wait = backoff;
-                backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
+                if (connectedOnce) { // estava conectado: a próxima tentativa começa rápida
+                    connectedOnce = false;
+                    backoff = 1000;
+                    wait = 1000;
+                } else if (!found) {
+                    wait = 1000; // a busca já esperou: volta a escutar logo
+                } else { // achou o Mac, mas não conseguiu conectar: espera mais a cada vez
+                    wait = backoff;
+                    backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
+                }
             }
             if (!running) return;
             synchronized (sleepLock) {
@@ -220,13 +279,18 @@ final class MacLink {
             Wire.Message auth = Wire.decode(Wire.readFrame(in));
             if (auth.type != Wire.Type.AUTH) throw new IOException("expected AUTH");
             channel = new SecureChannel(pairing.key(), tabletNonce, auth.data);
-            write(Wire.Message.hello(deviceName()));
+            write(Wire.Message.hello(deviceName(), localPeer()));
             Wire.Message hello = Wire.decode(channel.open(Wire.readFrame(in)));
             if (hello.type != Wire.Type.HELLO) throw new IOException("expected HELLO");
+            macPeer = hello.peer;
+            Log.i(BridgeService.TAG, "Mac version " + (macPeer.version.isEmpty() ? "<= 2.3" : macPeer.version)
+                    + ", capabilities " + macPeer.capabilities);
             ready = true;
+            connectedOnce = true;
             lastReceivedAt = android.os.SystemClock.elapsedRealtime();
             Log.i(BridgeService.TAG, "connected (encrypted) to " + hello.text + " at " + mac.host() + ":" + mac.port());
             listener.onState("Conectado ao " + hello.text + " (criptografado)");
+            listener.onConnected();
 
             Thread pinger = new Thread(() -> {
                 try {
@@ -286,6 +350,9 @@ final class MacLink {
                         }
                         break;
                     }
+                    case UNKNOWN:
+                        Log.i(BridgeService.TAG, "message " + m.text + " from a newer Mac; ignored");
+                        break;
                     default:
                         break;
                 }
@@ -341,6 +408,16 @@ final class MacLink {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    /** O que o tablet anuncia no HELLO. Cada recurso novo entra aqui quando estiver pronto. */
+    private Wire.Peer localPeer() {
+        String version = "dev";
+        try {
+            version = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
+        } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
+        }
+        return new Wire.Peer(version, java.util.Collections.emptySet());
     }
 
     private String deviceName() {

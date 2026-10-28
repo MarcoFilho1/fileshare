@@ -112,7 +112,7 @@ In Samsung Notes (or any app), tap **⋮ → Share** and pick your Mac in the to
 
 ### A panel that feels like part of macOS
 
-Click ⇄ for a panel in the manner of Control Center: the tablet and its connection, round toggles for **Sync** (pause) and **Open at Login**, recent activity with file progress, and shortcuts to send a file or open what you received.
+Click ⇄ for a panel in the manner of Control Center: the tablet, its connection and battery, round toggles for **Sync** (pause) and **Open at Login**, recent activity with file progress, and shortcuts to send a file or open what you received.
 
 <p align="center">
   <picture>
@@ -125,9 +125,9 @@ Click ⇄ for a panel in the manner of Control Center: the tablet and its connec
   </picture>
 </p>
 
-### Tablet asleep? It waits
+### Out of reach? It waits
 
-The Mac keeps your last copy for up to 10 minutes and files wait in a queue; as soon as the tablet's screen turns on, it reconnects and gets everything. Both apps start on their own: the Mac app at login, the tablet service after a restart or an update.
+Both ways. The Mac keeps your last copy for up to 10 minutes and files wait in a queue until the tablet wakes. The tablet does the same when the Mac is away: your last copy waits 10 minutes and shared files wait up to 24 hours, with a **Waiting for the Mac** notice and a **Cancel** button. As soon as they find each other on the network again (within seconds), everything is delivered; if you copied something newer in the meantime, your newer copy stays. Both apps start on their own: the Mac app at login, the tablet service after a restart or an update.
 
 ## FAQ
 

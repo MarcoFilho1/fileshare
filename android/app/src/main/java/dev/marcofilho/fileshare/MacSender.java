@@ -18,7 +18,8 @@ final class MacSender {
         Context app = ctx.getApplicationContext();
         MacLink link = MacLink.current;
         if (link == null || !link.isConnected()) {
-            toast(app, "Mac não conectado");
+            hold(app, p, "Mac longe: " + p.description() + " vai quando ele voltar (até 10 min)");
+            if (link != null) link.wake();
             return;
         }
         new Thread(() -> {
@@ -28,9 +29,35 @@ final class MacSender {
                 toast(app, "Enviado ao Mac: " + p.description() + " (" + kb(p.data().length) + ")");
             } catch (Exception e) {
                 Log.e(BridgeService.TAG, "send to Mac failed", e);
-                toast(app, "Mac não respondeu");
+                hold(app, p, "Mac não respondeu: tento de novo quando ele voltar");
             }
         }, "fileshare-send").start();
+    }
+
+    /** Guarda a cópia para o Mac (só a última vale) e avisa. */
+    private static void hold(Context app, ClipReader.Payload p, String message) {
+        Outbox.holdClip(p.mime(), p.data());
+        Log.i(BridgeService.TAG, "held for the Mac: " + p.mime() + " " + p.data().length + " B");
+        toast(app, message);
+    }
+
+    /** Conexão pronta: entrega a cópia guardada, se o Mac sabe recebê-la. Roda fora da thread principal. */
+    static void deliverHeld(Context ctx, MacLink link) {
+        Outbox.Clip c = Outbox.takeClip();
+        if (c == null) return;
+        if (!link.macSupports(MacLink.Capability.HELD)) {
+            Log.i(BridgeService.TAG, "Mac is older than 2.4 and can't take the held copy; dropped");
+            toast(ctx, "Atualize o FileShare no Mac para receber cópias guardadas");
+            return;
+        }
+        try {
+            link.sendHeld(c.mime(), c.data(), c.copiedAt(), ACK_TIMEOUT_MS);
+            Log.i(BridgeService.TAG, "held copy delivered to Mac: " + c.mime() + " " + c.data().length + " B");
+            toast(ctx, "Cópia guardada entregue ao Mac");
+        } catch (Exception e) {
+            Log.e(BridgeService.TAG, "held copy not delivered", e);
+            Outbox.restoreClip(c);
+        }
     }
 
     static void toast(Context ctx, String msg) {

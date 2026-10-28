@@ -20,6 +20,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: PasteboardWatcher!
     private var connected = false
     private var paused = false
+    /// Última vez que você copiou algo no Mac: uma cópia guardada no tablet mais antiga que isso não a substitui.
+    private var lastLocalCopyAt: Date?
 
     private var status: StatusModel { statusPanel.model }
 
@@ -31,29 +33,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         server = TabletServer(
             macId: PairingStore.macId,
-            onReceive: { [weak self] payload in self?.received(payload) },
+            onReceive: { [weak self] payload, copiedAt in self?.received(payload, copiedAt: copiedAt) },
             onState: { [weak self] state in self?.update(state) },
             onHeldDelivered: { [weak self] payload in
                 self?.status.log(.toTablet, L10n.t("Delivered on wake: ", "Entregue ao acordar: ") + Self.describe(payload))
             },
             onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) },
-            onFileEvent: { [weak self] event in self?.fileEvent(event) })
+            onFileEvent: { [weak self] event in self?.fileEvent(event) },
+            onBattery: { [weak self] level, charging in
+                if self?.status.battery == nil { NSLog("FileShare: bateria do tablet %d%%%@", level, charging ? " (carregando)" : "") }
+                self?.status.battery = .init(level: level, charging: charging)
+            })
         setUpNotifications()
-        let key = PairingStore.loadKey()
-        setPaired(key != nil)
         if let name = UserDefaults.standard.string(forKey: "tabletName") {
             dropPanel.model.tabletName = name
             status.tabletName = name
         }
-        server.setPairingKey(key)
+        loadPairingKey()
         enableLoginItemOnFirstInstall()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
         watcher.start()
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
         setUpDrop()
-        // primeira vez (ou tablet esquecido): já mostra como parear
-        if key == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.pair() } }
+    }
+
+    /// Lê a chave do pareamento fora da thread principal: se o macOS perguntar sobre o acesso às
+    /// Chaves, o ícone e o painel continuam respondendo enquanto a pergunta está aberta.
+    private func loadPairingKey() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let lookup = PairingStore.loadKey()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                switch lookup {
+                case .found(let key):
+                    self.setPaired(true)
+                    self.server.setPairingKey(key)
+                case .missing:
+                    // primeira vez (ou tablet esquecido): já mostra como parear
+                    self.setPaired(false)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.pair() }
+                case .failed(let code):
+                    // A chave continua lá: não abre o pareamento, que a substituiria. Tenta de novo
+                    // quando o app for aberto outra vez.
+                    NSLog("FileShare: não consegui ler a chave do pareamento nas Chaves (%d)", code)
+                    self.setPaired(true)
+                    self.status.log(.failed, L10n.t("Couldn't read the pairing key from the Keychain. Reopen FileShare and click Always Allow.",
+                                                     "Não consegui ler a chave do pareamento nas Chaves. Abra o FileShare de novo e clique em Sempre permitir."))
+                }
+            }
+        }
     }
 
     private func setUpStatusItem() {
@@ -94,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func copied(_ payload: ClipPayload) {
+        lastLocalCopyAt = Date()
         guard !paused else { return }
         server.send(payload) { [weak self] result in
             switch result {
@@ -104,10 +134,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func received(_ payload: ClipPayload) {
+    private func received(_ payload: ClipPayload, copiedAt: Int64? = nil) {
         guard !paused else { return }
+        if let copiedAt, let mine = lastLocalCopyAt, Double(copiedAt) / 1000 < mine.timeIntervalSince1970 {
+            // Cópia que o tablet guardou com o Mac longe, mas você copiou algo aqui depois: fica a sua.
+            NSLog("FileShare: cópia guardada no tablet é mais antiga que a última cópia do Mac; ignorada")
+            return
+        }
         if PasteboardWriter.write(payload, to: .general) {
-            status.log(.fromTablet, Self.describe(payload))
+            status.log(.fromTablet, (copiedAt == nil ? "" : L10n.t("Saved on the tablet: ", "Guardado no tablet: ")) + Self.describe(payload))
         } else {
             status.log(.failed, L10n.t("Couldn't open the received image", "Não consegui abrir a imagem recebida"))
         }
@@ -276,6 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .failed(let reason): status.link = .failed(reason)
         }
         connected = status.link == .connected
+        if !connected { status.battery = nil } // número velho engana: some até o tablet mandar de novo
         dropPanel.model.connected = connected
         updateIcon()
     }
@@ -374,6 +410,7 @@ extension AppDelegate {
             status.log(.toTablet, L10n.t("Image (1.2 MB)", "Imagem (1,2 MB)"))
             status.sending = (L10n.t("Class 7 - slides.pdf", "Aula 7 - slides.pdf"), 0.45)
         }
+        if state == "status" { status.battery = .init(level: 72, charging: false) }
         statusPanel.keepOpen = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             if state == "pairing" || state == "paired" {

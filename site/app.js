@@ -11,8 +11,8 @@
   // ---------- faixa de novidade (fechar fica lembrado) ----------
   var banner = $("#banner");
   if (banner) {
-    if (store("fileshare-banner") === "v2.3.0") banner.classList.add("closed");
-    $(".x", banner).addEventListener("click", function () { banner.classList.add("closed"); store("fileshare-banner", "v2.3.0"); });
+    if (store("fileshare-banner") === "v2.4.0") banner.classList.add("closed");
+    $(".x", banner).addEventListener("click", function () { banner.classList.add("closed"); store("fileshare-banner", "v2.4.0"); });
   }
 
   // ---------- menu: borda ao rolar; tela cheia no celular ----------
