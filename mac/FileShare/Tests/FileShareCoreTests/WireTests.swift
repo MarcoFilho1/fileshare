@@ -27,6 +27,7 @@ struct WireTests {
         .ping,
         .pong,
         .battery(level: 72, charging: false),
+        .open(id: 5, url: "https://www.youtube.com/watch?v=abc&t=10"),
         .battery(level: 100, charging: true),
     ])
     func roundTrips(_ message: WireMessage) throws {
@@ -67,6 +68,25 @@ struct WireTests {
         #expect(String(decoding: Wire.messageBytes(.battery(level: 7, charging: true)), as: UTF8.self) == "BATT 7 1\n")
         #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data("BATT 101 0\n".utf8)) }
         #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data("BATT 50 sim\n".utf8)) }
+    }
+
+    /// Mesmo texto do WireTest.java.
+    @Test func openMatchesAndroidFormat() {
+        #expect(String(decoding: Wire.messageBytes(.open(id: 3, url: "https://exemplo.com/a")), as: UTF8.self) == "OPEN 3 https://exemplo.com/a\n")
+    }
+
+    /// Só páginas da web: nada de file:, apps ou endereço vazio.
+    @Test(arguments: [
+        ("https://marcofilho1.github.io/fileshare/", true),
+        ("HTTP://exemplo.com", true),
+        ("file:///etc/passwd", false),
+        ("javascript:alert(1)", false),
+        ("x-apple.systempreferences:com.apple.preference.security", false),
+        ("https://", false),
+        ("não é link", false),
+    ])
+    func acceptsOnlyWebLinks(_ text: String, _ ok: Bool) {
+        #expect((Wire.webURL(text) != nil) == ok)
     }
 
     /// Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo.

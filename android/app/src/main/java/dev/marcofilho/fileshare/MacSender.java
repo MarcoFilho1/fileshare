@@ -41,6 +41,33 @@ final class MacSender {
         toast(app, message);
     }
 
+    /** Compartilhar → Abrir no Mac. Com o Mac longe só avisa: abrir uma página sozinha horas depois seria estranho. */
+    static void openOnMac(Context ctx, String url) {
+        Context app = ctx.getApplicationContext();
+        MacLink link = MacLink.current;
+        if (link == null || !link.isConnected()) {
+            toast(app, "Mac não conectado: não abri o link");
+            if (link != null) link.wake();
+            return;
+        }
+        if (!link.macSupports(MacLink.Capability.OPEN)) {
+            toast(app, "Atualize o FileShare no Mac para abrir links nele");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                link.sendOpen(url, ACK_TIMEOUT_MS);
+                Log.i(BridgeService.TAG, "link opened on Mac");
+                toast(app, "Aberto no Mac");
+            } catch (MacLink.RefusedException e) {
+                toast(app, "O Mac não abriu: " + e.getMessage());
+            } catch (Exception e) {
+                Log.e(BridgeService.TAG, "open on Mac failed", e);
+                toast(app, "Mac não respondeu");
+            }
+        }, "fileshare-open").start();
+    }
+
     /** Conexão pronta: entrega a cópia guardada, se o Mac sabe recebê-la. Roda fora da thread principal. */
     static void deliverHeld(Context ctx, MacLink link) {
         Outbox.Clip c = Outbox.takeClip();

@@ -3,6 +3,7 @@
     <string name="a11y_desc">FileShare: percebe quando você toca em \"Copiar\" e envia o que foi copiado ao seu Mac. Não lê o conteúdo da tela.</string>
     <string name="a11y_label">FileShare: cópia automática</string>
     <string name="send_to_mac">Enviar ao Mac</string>
+    <string name="open_on_mac">Abrir no Mac</string>
 
     <string name="tagline">Área de transferência e arquivos entre este tablet e o seu Mac</string>
     <string name="unpaired_title">Ainda não pareado</string>

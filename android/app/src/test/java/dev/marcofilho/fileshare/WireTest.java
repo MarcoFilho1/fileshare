@@ -140,6 +140,35 @@ public class WireTest {
         assertThrows(IOException.class, () -> Wire.decode("BATT 50 sim\n".getBytes(StandardCharsets.UTF_8)));
     }
 
+    /** Mesmo texto do WireTests.swift. */
+    @Test
+    public void openMatchesMacFormat() throws IOException {
+        byte[] bytes = Wire.messageBytes(Wire.Message.open(3, "https://exemplo.com/a"));
+        assertEquals("OPEN 3 https://exemplo.com/a\n", new String(bytes, StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals(Wire.Type.OPEN, m.type);
+        assertEquals("https://exemplo.com/a", m.text);
+    }
+
+    /** O link vem muitas vezes junto do título da página, às vezes entre parênteses. */
+    @Test
+    public void findsFirstLinkInSharedText() {
+        assertEquals("https://youtu.be/abc123", OpenOnMacActivity.firstLink("Vídeo legal https://youtu.be/abc123"));
+        assertEquals("https://ex.com/a?b=1", OpenOnMacActivity.firstLink("Título (https://ex.com/a?b=1)."));
+        assertEquals("http://ex.com", OpenOnMacActivity.firstLink("http://ex.com\noutra https://y.com"));
+        assertEquals(null, OpenOnMacActivity.firstLink("sem link aqui, só ex.com"));
+        assertEquals(null, OpenOnMacActivity.firstLink("file:///sdcard/a.pdf"));
+    }
+
+    /** Só um link sozinho vira a notificação "Link do Mac"; texto com link no meio é só texto. */
+    @Test
+    public void detectsLinkCopiedOnMac() {
+        assertEquals("https://ex.com/a?b=1", BridgeService.singleLink("  https://ex.com/a?b=1\n"));
+        assertEquals(null, BridgeService.singleLink("veja https://ex.com"));
+        assertEquals(null, BridgeService.singleLink("file:///etc/hosts"));
+        assertEquals(null, BridgeService.singleLink("ex.com"));
+    }
+
     /** Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo. */
     @Test
     public void rejectsGarbage() {
