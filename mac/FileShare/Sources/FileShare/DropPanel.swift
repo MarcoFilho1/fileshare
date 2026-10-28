@@ -91,6 +91,9 @@ final class DropModel {
         case .progress(let name, let fraction): set(name, .sending(fraction))
         case .delivered(let name): set(name, .delivered)
         case .failed(let name, let reason): set(name, .failed(reason))
+        case .preparing(let name): set(name, .sending(0))
+        case .cancelled(let name): set(name, .failed(L10n.t("cancelled", "cancelado")))
+        case .receiving, .receivingEnded: break
         }
     }
 

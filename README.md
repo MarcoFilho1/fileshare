@@ -31,7 +31,7 @@
 
 Phone Link makes a Windows PC and an Android device feel like one: copy on one, paste on the other. Between a Mac and Android there was nothing like it, so every screenshot, link or PDF meant emailing yourself, a messaging app or a cable.
 
-FileShare fills that gap. The Mac and the tablet share one clipboard: copy a photo on the Mac and paste it straight into Samsung Notes to write on it with the S Pen; copy a passage of your notes on the tablet and press ⌘V on the Mac. Files go both ways too, with one tap or one drag. Everything travels directly between the two devices over your Wi-Fi, encrypted, and never through a server.
+FileShare fills that gap. The Mac and the tablet share one clipboard: copy a photo on the Mac and paste it straight into Samsung Notes to write on it with the S Pen; copy a passage of your notes on the tablet and press ⌘V on the Mac. Files of any size go both ways too (and whole folders from the Mac), with one tap or one drag. Everything travels directly between the two devices over your Wi-Fi, encrypted, and never through a server.
 
 It was built for, and tested with, a MacBook Air (macOS 26) and a Galaxy Tab S9 FE (Android 16 / One UI 8.5).
 
@@ -143,7 +143,9 @@ Both ways. The Mac keeps your last copy for up to 10 minutes and files wait in a
 
 **Does it work away from home?** On any network they're both on, like your office's. Some public networks (hotels, campuses, airports) block devices from talking to each other.
 
-**Where do received files go?** On the Mac, `Downloads/FileShare`; on the tablet, `Download/FileShare`. Up to 100 MB per file.
+**Where do received files go?** On the Mac, `Downloads/FileShare`; on the tablet, `Download/FileShare`. No size limit, only the free space of the receiving device; if the Wi-Fi drops halfway, the transfer picks up where it stopped. Whole folders work too (Mac → tablet).
+
+**Is it fast?** It depends more on your Wi-Fi than on the app. With both devices on a 5 GHz network we measured 1 GB in 95 s (11 MB/s) from the Mac to the tablet, and a 500 MB CSV in 16 s (30 MB/s), since text and spreadsheets are compressed behind the scenes. Files always arrive identical. Details in [docs/metricas.md](docs/metricas.md).
 
 **Can someone on the same network see what I copy?** No. Everything is encrypted with a key only your two devices have, created when you pair. Without that key a device is refused, and unpaired, the Mac doesn't even show up on the network.
 

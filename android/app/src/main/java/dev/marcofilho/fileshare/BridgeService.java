@@ -37,6 +37,8 @@ public class BridgeService extends Service {
     static final String CLIP_LABEL = "FileShare";
     private static final String FILES_CHANNEL = "received-files";
     private static final String LINKS_CHANNEL = "links";
+    private static final String RECEIVING_CHANNEL = "receiving";
+    private static final int RECEIVING_NOTIFICATION_ID = 5;
     private static final int LINK_NOTIFICATION_ID = 4;
     private static final int NOTIFICATION_ID = 1;
     private static final int MAX_CACHED_IMAGES = 10;
@@ -110,6 +112,32 @@ public class BridgeService extends Service {
                 }
 
                 @Override
+                public void onFolder(String folder, int files, String macName) {
+                    notifyFolder(folder, files, macName);
+                }
+
+                @Override
+                public void onReceiving(String name, long received, long size) {
+                    int percent = (int) (received * 100 / Math.max(size, 1));
+                    nm.createNotificationChannel(new NotificationChannel(RECEIVING_CHANNEL, "Recebendo do Mac", NotificationManager.IMPORTANCE_LOW));
+                    nm.notify(RECEIVING_NOTIFICATION_ID, new Notification.Builder(BridgeService.this, RECEIVING_CHANNEL)
+                            .setContentTitle("Recebendo do Mac")
+                            .setContentText(name + " — " + FileSender.readable(received) + " de " + FileSender.readable(size))
+                            .setSmallIcon(android.R.drawable.stat_sys_download)
+                            .setProgress(100, percent, false)
+                            .addAction(new Notification.Action.Builder(null, "Cancelar",
+                                    TransferCancelReceiver.intent(BridgeService.this, TransferCancelReceiver.RECEIVE)).build())
+                            .setOngoing(true)
+                            .setOnlyAlertOnce(true)
+                            .build());
+                }
+
+                @Override
+                public void onReceivingEnded() {
+                    nm.cancel(RECEIVING_NOTIFICATION_ID);
+                }
+
+                @Override
                 public void onConnected() {
                     // Em outra thread: a entrega espera a confirmação, que chega pela thread da conexão.
                     MacLink current = link;
@@ -124,9 +152,19 @@ public class BridgeService extends Service {
             Outbox.updateNotification(this); // fila que sobrou de antes de reiniciar
             link.start();
             networkCallback = new ConnectivityManager.NetworkCallback() {
+                private Network current;
+
                 @Override
                 public void onAvailable(Network network) {
-                    link.wake();
+                    // Trocou de rede (ex.: 2,4 GHz → 5 GHz): a conexão antiga morreu, mas só daria
+                    // erro depois do tempo de leitura. Larga já e reencontra o Mac em segundos.
+                    if (current != null && !current.equals(network)) {
+                        Log.i(TAG, "network changed; reconnecting");
+                        link.repair();
+                    } else {
+                        link.wake();
+                    }
+                    current = network;
                 }
             };
             getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(networkCallback);
@@ -207,6 +245,21 @@ public class BridgeService extends Service {
         } catch (IOException e) {
             Log.e(TAG, "could not store image from Mac", e);
         }
+    }
+
+    /** Pasta recebida; tocar abre o app Arquivos em Downloads. */
+    private void notifyFolder(String folder, int files, String macName) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.createNotificationChannel(new NotificationChannel(FILES_CHANNEL, "Arquivos recebidos do Mac", NotificationManager.IMPORTANCE_DEFAULT));
+        Intent open = new Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent tap = PendingIntent.getActivity(this, folder.hashCode(), open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        nm.notify(("folder" + folder).hashCode(), new Notification.Builder(this, FILES_CHANNEL)
+                .setContentTitle("Pasta recebida do " + macName)
+                .setContentText(folder + " — " + files + (files == 1 ? " arquivo" : " arquivos") + " (Downloads › FileShare)")
+                .setSmallIcon(R.drawable.ic_stat_fileshare)
+                .setContentIntent(tap)
+                .setAutoCancel(true)
+                .build());
     }
 
     /** O texto é só um link da web (o que se copia na barra de endereço)? Devolve o link, ou null. */
