@@ -31,7 +31,7 @@
 
 O Phone Link faz um PC com Windows e um Android parecerem um só: copiou num, cola no outro. Entre o Mac e o Android não havia nada parecido, e todo print, link ou PDF virava um e-mail para você mesmo, uma conversa no WhatsApp ou um cabo.
 
-O FileShare resolve isso. O Mac e o tablet passam a ter uma área de transferência só: copie uma foto no Mac e cole direto no Samsung Notes para escrever por cima com a S Pen; copie um trecho das suas notas no tablet e use ⌘V no Mac. Arquivos também vão nos dois sentidos, com um toque ou um arrasto. Tudo vai direto de um aparelho para o outro pelo seu Wi-Fi, criptografado, sem passar por nenhum servidor.
+O FileShare resolve isso. O Mac e o tablet passam a ter uma área de transferência só: copie uma foto no Mac e cole direto no Samsung Notes para escrever por cima com a S Pen; copie um trecho das suas notas no tablet e use ⌘V no Mac. Arquivos de qualquer tamanho também vão nos dois sentidos (e pastas inteiras, do Mac para o tablet), com um toque ou um arrasto. Tudo vai direto de um aparelho para o outro pelo seu Wi-Fi, criptografado, sem passar por nenhum servidor.
 
 Foi feito e testado com um MacBook Air (macOS 26) e um Galaxy Tab S9 FE (Android 16 / One UI 8.5).
 
@@ -145,7 +145,9 @@ Nos dois sentidos. O Mac guarda a última cópia por até 10 minutos e os arquiv
 
 **Funciona fora de casa?** Em qualquer rede em que os dois estejam juntos, como a do trabalho. Algumas redes públicas (hotel, faculdade, aeroporto) bloqueiam a conversa entre aparelhos.
 
-**Onde ficam os arquivos recebidos?** No Mac, em `Downloads/FileShare`; no tablet, em `Download/FileShare`. Até 100 MB por arquivo.
+**Onde ficam os arquivos recebidos?** No Mac, em `Downloads/FileShare`; no tablet, em `Download/FileShare`. Sem limite de tamanho, só o espaço livre de quem recebe; se o Wi-Fi cair no meio, o envio continua de onde parou. Pastas inteiras também vão (Mac → tablet).
+
+**É rápido?** Depende mais do seu Wi-Fi do que do app. Com os dois aparelhos numa rede de 5 GHz, medimos 1 GB em 95 s (11 MB/s) do Mac para o tablet, e um CSV de 500 MB em 16 s (30 MB/s), porque textos e planilhas vão comprimidos sem você perceber. O arquivo sempre chega idêntico. Detalhes em [docs/metricas.md](docs/metricas.md).
 
 **Alguém na mesma rede pode ver o que eu copio?** Não. Tudo é criptografado com uma chave que só os seus dois aparelhos têm, criada no pareamento. Sem essa chave, o aparelho é recusado, e sem pareamento o Mac nem aparece na rede.
 
