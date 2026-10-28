@@ -26,6 +26,8 @@ struct WireTests {
         .fail(id: 3, reason: "arquivo maior que 100 MB"),
         .ping,
         .pong,
+        .battery(level: 72, charging: false),
+        .battery(level: 100, charging: true),
     ])
     func roundTrips(_ message: WireMessage) throws {
         var decoder = FrameDecoder()
@@ -56,12 +58,19 @@ struct WireTests {
 
     /// Um tipo de uma versão mais nova não derruba a conexão: vira .unknown e é ignorado.
     @Test func toleratesMessageFromNewerVersion() throws {
-        #expect(try Wire.decodeMessage(Data("BATT 72 charging\n".utf8)) == .unknown(type: "BATT"))
+        #expect(try Wire.decodeMessage(Data("HIST 3 texto\n".utf8)) == .unknown(type: "HIST"))
         #expect(try Wire.decodeMessage(Data("NOTIF\ncorpo qualquer".utf8)) == .unknown(type: "NOTIF"))
     }
 
+    /// Mesmo texto do WireTest.java.
+    @Test func batteryMatchesAndroidFormat() throws {
+        #expect(String(decoding: Wire.messageBytes(.battery(level: 7, charging: true)), as: UTF8.self) == "BATT 7 1\n")
+        #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data("BATT 101 0\n".utf8)) }
+        #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data("BATT 50 sim\n".utf8)) }
+    }
+
     /// Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo.
-    @Test(arguments: ["hack 1\n", "\n", "BATT1 2\n", "ÇÃO\n", "UMTIPOMUITOCOMPRIDO\n"])
+    @Test(arguments: ["hack 1\n", "\n", "HIST1 2\n", "ÇÃO\n", "UMTIPOMUITOCOMPRIDO\n"])
     func rejectsGarbage(_ text: String) {
         #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data(text.utf8)) }
     }

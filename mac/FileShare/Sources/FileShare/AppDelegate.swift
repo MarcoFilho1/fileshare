@@ -39,7 +39,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.status.log(.toTablet, L10n.t("Delivered on wake: ", "Entregue ao acordar: ") + Self.describe(payload))
             },
             onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) },
-            onFileEvent: { [weak self] event in self?.fileEvent(event) })
+            onFileEvent: { [weak self] event in self?.fileEvent(event) },
+            onBattery: { [weak self] level, charging in
+                if self?.status.battery == nil { NSLog("FileShare: bateria do tablet %d%%%@", level, charging ? " (carregando)" : "") }
+                self?.status.battery = .init(level: level, charging: charging)
+            })
         setUpNotifications()
         if let name = UserDefaults.standard.string(forKey: "tabletName") {
             dropPanel.model.tabletName = name
@@ -307,6 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .failed(let reason): status.link = .failed(reason)
         }
         connected = status.link == .connected
+        if !connected { status.battery = nil } // número velho engana: some até o tablet mandar de novo
         dropPanel.model.connected = connected
         updateIcon()
     }
@@ -405,6 +410,7 @@ extension AppDelegate {
             status.log(.toTablet, L10n.t("Image (1.2 MB)", "Imagem (1,2 MB)"))
             status.sending = (L10n.t("Class 7 - slides.pdf", "Aula 7 - slides.pdf"), 0.45)
         }
+        if state == "status" { status.battery = .init(level: 72, charging: false) }
         statusPanel.keepOpen = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             if state == "pairing" || state == "paired" {

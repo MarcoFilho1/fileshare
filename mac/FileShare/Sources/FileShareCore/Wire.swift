@@ -53,6 +53,8 @@ public enum WireMessage: Equatable, Sendable {
     case fail(id: Int, reason: String)
     case ping
     case pong
+    /// Bateria do tablet (0–100) e se está carregando; ele manda ao conectar e quando muda (2.4+).
+    case battery(level: Int, charging: Bool)
     /// Tipo que esta versão não conhece (de uma versão mais nova do outro lado): quem recebe ignora,
     /// em vez de derrubar a conexão. Para crescer o protocolo, crie tipos novos em vez de mudar os
     /// argumentos dos que já existem.
@@ -106,6 +108,7 @@ public enum Wire {
         case .fail(let id, let reason): return Data("FAIL \(id) \(reason)\n".utf8)
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
+        case .battery(let level, let charging): return Data("BATT \(level) \(charging ? 1 : 0)\n".utf8)
         case .unknown(let type): return Data("\(type)\n".utf8)
         }
     }
@@ -147,6 +150,11 @@ public enum Wire {
             return .fail(id: id, reason: parts[2])
         case "PING": return .ping
         case "PONG": return .pong
+        case "BATT":
+            guard parts.count == 3, let level = Int(parts[1]), (0...100).contains(level), ["0", "1"].contains(parts[2]) else {
+                throw DecodeError.badMessage(header)
+            }
+            return .battery(level: level, charging: parts[2] == "1")
         default:
             // Um tipo novo é uma palavra em maiúsculas; qualquer outra coisa é lixo.
             guard let type = parts.first, !type.isEmpty, type.count <= 16,

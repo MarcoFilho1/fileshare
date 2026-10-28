@@ -49,6 +49,8 @@ final class MacLink {
     static final class Capability {
         /** Aceita HELD: a cópia que o tablet guardou enquanto o Mac estava longe. */
         static final String HELD = "held";
+        /** Mostra a bateria do tablet (BATT) no painel. */
+        static final String BATTERY = "batt";
 
         private Capability() {
         }
@@ -152,6 +154,16 @@ final class MacLink {
     /** Envia ao Mac e espera a confirmação. */
     void send(String mime, byte[] data, long timeoutMs) throws Exception {
         sendAndWait(id -> Wire.Message.clip(id, mime, data), timeoutMs);
+    }
+
+    /** Nível da bateria para o painel do Mac; sem confirmação, e só se ele anunciou Capability.BATTERY. */
+    void sendBattery(int level, boolean charging) {
+        if (!ready || !macSupports(Capability.BATTERY)) return;
+        try {
+            write(Wire.Message.battery(level, charging));
+        } catch (IOException e) {
+            Log.w(BridgeService.TAG, "battery not sent: " + e);
+        }
     }
 
     /** Cópia guardada com o Mac longe, feita em copiedAt (ms); só para um Mac com Capability.HELD. */
