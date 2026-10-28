@@ -5,7 +5,7 @@ Escrito em 27/10/2026, a partir da v2.3.1. Cada etapa vira uma versão própria,
 | Etapa | Versão | O que entrega | Tamanho |
 |---|---|---|---|
 | 0 | junto da 2.4 | Os apps passam a aceitar mensagens novas sem cair | pequeno |
-| 1 | 2.4.0 | Sem pedido das Chaves a cada atualização · tablet → Mac com o Mac longe · bateria do tablet no painel | médio |
+| 1 | 2.4.0 | App não trava no pedido das Chaves · tablet → Mac com o Mac longe · bateria do tablet no painel | médio |
 | 2 | 2.5.0 | Histórico da área de transferência no painel · abrir link no outro aparelho | médio |
 | 3 | 2.6.0 | Arquivos grandes (até 2 GB) e pastas | médio |
 | 4 | 2.7.0 | Notificações do tablet no Mac | grande |
@@ -28,21 +28,23 @@ Escrito em 27/10/2026, a partir da v2.3.1. Cada etapa vira uma versão própria,
 
 ## Etapa 1 (v2.4.0): os incômodos de hoje
 
-### 1.1 Sem o pedido das Chaves a cada atualização do Mac
+### 1.1 Pedido das Chaves a cada atualização do Mac (investigado em 27/10)
 
-**O que o usuário vê.** Atualizou o FileShare no Mac, ele abre direto, sem o aviso "FileShare quer usar a informação confidencial guardada nas Chaves".
+**O que se tentou.** Assinar todas as versões com um certificado próprio, para o macOS reconhecer cada atualização como o mesmo app.
 
-**Por que acontece hoje.** O app é assinado "ad hoc" (`codesign --sign -` em `build-app.sh`). Cada build tem uma identidade diferente, então o macOS trata a versão nova como outro app e pergunta de novo.
+**O que se descobriu.**
+- O certificado próprio deixa a identidade do app estável, mas **o macOS continua perguntando a cada build nova**.
+- Sem um Team ID, que só a Apple emite, as Chaves amarram a permissão à impressão digital exata de cada build. Um campo de equipe (OU) no certificado próprio não gera Team ID.
+- O "chaveiro moderno" (*data protection keychain*) exige uma permissão da conta paga da Apple (erro `-34018`).
 
-**Como resolver, sem pagar a Apple.**
-1. Criar um **certificado de assinatura de código próprio** (autoassinado, nome "FileShare Code Signing"), guardado nas Chaves do Mac, com cópia de segurança em `~/.fileshare/`, junto da chave do APK.
-2. `build-app.sh` assina com esse certificado quando ele existe e continua "ad hoc" quando não existe, para quem compila o código.
-3. Na primeira vez com o certificado novo, o macOS ainda pergunta uma última vez. Depois disso, as atualizações passam a ser reconhecidas como o mesmo app. Vale também para quem baixa o DMG.
-4. Ler a chave das Chaves **fora da thread principal**. Hoje o aviso trava o app até ser respondido.
+**Decisão (27/10).**
+- A chave do pareamento **continua nas Chaves**, que protegem mais que um arquivo, e o "Sempre permitir" a cada atualização continua.
+- O certificado próprio foi descartado.
+- Só o Apple Developer Program resolveria, junto com o aviso do Gatekeeper.
 
-**O que não muda.** O aviso do Gatekeeper ("Apple não pôde verificar…") continua na primeira instalação. Esse só some com a notarização, que é paga.
-
-**Risco.** Perder o certificado faz voltar a pergunta das Chaves uma vez. O backup fica no mesmo lugar da chave do APK.
+**O que entra na 2.4 mesmo assim.**
+- A chave é lida **fora da thread principal**: o app não trava enquanto o macOS pergunta.
+- Uma **recusa** nas Chaves não é mais tratada como "não pareado". Antes, o app abriria o pareamento e substituiria a chave boa. Agora ele avisa no painel e tenta de novo na próxima abertura.
 
 ### 1.2 Tablet → Mac com o Mac longe ou desligado
 
