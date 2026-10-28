@@ -39,21 +39,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onFile: { [weak self] url, mime, from in self?.receivedFile(url, mime: mime, from: from) },
             onFileEvent: { [weak self] event in self?.fileEvent(event) })
         setUpNotifications()
-        let key = PairingStore.loadKey()
-        setPaired(key != nil)
         if let name = UserDefaults.standard.string(forKey: "tabletName") {
             dropPanel.model.tabletName = name
             status.tabletName = name
         }
-        server.setPairingKey(key)
+        loadPairingKey()
         enableLoginItemOnFirstInstall()
         watcher = PasteboardWatcher { [weak self] payload in self?.copied(payload) }
         watcher.start()
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
         setUpDrop()
-        // primeira vez (ou tablet esquecido): já mostra como parear
-        if key == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.pair() } }
+    }
+
+    /// Lê a chave do pareamento fora da thread principal: se o macOS perguntar sobre o acesso às
+    /// Chaves, o ícone e o painel continuam respondendo enquanto a pergunta está aberta.
+    private func loadPairingKey() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let lookup = PairingStore.loadKey()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                switch lookup {
+                case .found(let key):
+                    self.setPaired(true)
+                    self.server.setPairingKey(key)
+                case .missing:
+                    // primeira vez (ou tablet esquecido): já mostra como parear
+                    self.setPaired(false)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.pair() }
+                case .failed(let code):
+                    // A chave continua lá: não abre o pareamento, que a substituiria. Tenta de novo
+                    // quando o app for aberto outra vez.
+                    NSLog("FileShare: não consegui ler a chave do pareamento nas Chaves (%d)", code)
+                    self.setPaired(true)
+                    self.status.log(.failed, L10n.t("Couldn't read the pairing key from the Keychain. Reopen FileShare and click Always Allow.",
+                                                     "Não consegui ler a chave do pareamento nas Chaves. Abra o FileShare de novo e clique em Sempre permitir."))
+                }
+            }
+        }
     }
 
     private func setUpStatusItem() {

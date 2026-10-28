@@ -13,7 +13,17 @@ enum PairingStore {
         return id
     }
 
-    static func loadKey() -> Data? {
+    enum KeyLookup {
+        case found(Data)
+        /// Nunca pareou, ou o tablet foi esquecido.
+        case missing
+        /// A chave existe, mas o macOS não a entregou (acesso às Chaves negado, Chaves trancadas…).
+        /// Não é o mesmo que "não pareado": abrir o pareamento aqui apagaria a chave boa.
+        case failed(OSStatus)
+    }
+
+    /// Pode bloquear enquanto o macOS pergunta se o app pode usar as Chaves: chame fora da thread principal.
+    static func loadKey() -> KeyLookup {
         var result: AnyObject?
         let status = SecItemCopyMatching([
             kSecClass: kSecClassGenericPassword,
@@ -21,7 +31,13 @@ enum PairingStore {
             kSecAttrAccount: account,
             kSecReturnData: true,
         ] as CFDictionary, &result)
-        return status == errSecSuccess ? result as? Data : nil
+        switch status {
+        case errSecSuccess:
+            guard let key = result as? Data else { return .failed(status) }
+            return .found(key)
+        case errSecItemNotFound: return .missing
+        default: return .failed(status)
+        }
     }
 
     @discardableResult
