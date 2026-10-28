@@ -56,13 +56,15 @@ Escrito em 27/10/2026, a partir da v2.3.1. Cada etapa vira uma versão própria,
 - **Notificação no tablet:** fixa enquanto há algo na fila, com o botão **Cancelar**.
 - **Limites:** a fila guarda até 500 MB ou 24 h, e o que passa disso é descartado com aviso.
 
+**Reconexão (descoberto no teste, 27/10).** A volta levava até 2,5 min: depois de uma conexão que caía com erro, o tablet mantinha a espera máxima, e só procurava o Mac 15 s a cada 45 s. Agora ele escuta a rede quase o tempo todo e volta a tentar rápido depois de uma conexão, voltando **em cerca de 2 s** quando o Mac reaparece.
+
 **Testes.** Mac desligado → compartilhar dois arquivos → ligar o Mac → os dois chegam. Copiar no tablet → copiar outra coisa no Mac → reconectar → o Mac não perde a própria cópia.
 
 ### 1.3 Bateria do tablet no painel do Mac
 
 **O que o usuário vê.** No painel ⇄: "Galaxy Tab S9 FE · Conectado · 🔋 72%", com um raio quando está carregando.
 
-**Como funciona.** O tablet envia `BATT 72 charging` ao conectar e quando o nível muda, de 5 em 5%. O Android avisa as mudanças sozinho, então isso não gasta bateria a mais.
+**Como funciona.** O tablet envia `BATT 72 1` (nível e se está carregando) ao conectar e quando a porcentagem ou o carregamento muda. Na prática, o nível muda cerca de 1% a cada 6 minutos. O Android avisa as mudanças sozinho, então isso não gasta bateria a mais.
 
 ---
 
