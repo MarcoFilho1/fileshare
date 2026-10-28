@@ -145,7 +145,7 @@ Both ways. The Mac keeps your last copy for up to 10 minutes and files wait in a
 
 **Where do received files go?** On the Mac, `Downloads/FileShare`; on the tablet, `Download/FileShare`. No size limit, only the free space of the receiving device; if the Wi-Fi drops halfway, the transfer picks up where it stopped. Whole folders work too (Mac → tablet).
 
-**Is it fast?** It depends more on your Wi-Fi than on the app. With both devices on a 5 GHz network we measured 1 GB in 95 s (11 MB/s) from the Mac to the tablet, and a 500 MB CSV in 16 s (30 MB/s), since text and spreadsheets are compressed behind the scenes. Files always arrive identical. Details in [docs/metricas.md](docs/metricas.md).
+**Is it fast?** It depends more on your Wi-Fi than on the app. With both devices on a 5 GHz network we measured 1 GB in 95 s (11 MB/s) from the Mac to the tablet, and a 200 MB CSV in 4.9 s (41 MB/s), since text and spreadsheets are compressed behind the scenes. Files always arrive identical. Details in [docs/metricas.md](docs/metricas.md).
 
 **Can someone on the same network see what I copy?** No. Everything is encrypted with a key only your two devices have, created when you pair. Without that key a device is refused, and unpaired, the Mac doesn't even show up on the network.
 
