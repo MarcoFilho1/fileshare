@@ -149,8 +149,9 @@ final class FileSender {
             nm.notify(NOTIFICATION_ID, progress(ctx, name, 0, size));
             for (int attempt = 1; ; attempt++) {
                 try {
-                    link.sendFile(name, mime, size, in, transferId, onProgress, () -> cancelRequested, ACK_TIMEOUT_MS);
-                    Log.i(BridgeService.TAG, "file sent to Mac: " + mime + " " + Wire.speed(size, startedAt, SystemClock.elapsedRealtime()));
+                    long wire = link.sendFile(name, mime, size, in, transferId, onProgress, () -> cancelRequested, ACK_TIMEOUT_MS);
+                    String saved = wire > 0 && wire < size ? " (rede: " + readable(wire) + ", " + (wire * 100 / size) + "%)" : "";
+                    Log.i(BridgeService.TAG, "file sent to Mac: " + mime + " " + Wire.speed(size, startedAt, SystemClock.elapsedRealtime()) + saved);
                     return Result.SENT;
                 } catch (MacLink.CancelledException | MacLink.RefusedException e) {
                     throw e;

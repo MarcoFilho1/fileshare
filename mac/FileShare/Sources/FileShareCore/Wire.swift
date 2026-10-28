@@ -53,6 +53,9 @@ public enum WireMessage: Equatable, Sendable {
     case fail(id: Int, reason: String)
     case ping
     case pong
+    /// Pedaço comprimido (DEFLATE cru) do arquivo `id` (2.6+, só para quem anunciou "zpart"):
+    /// quem recebe descomprime e grava como um PART.
+    case partZ(id: Int, data: Data)
     /// Início de um arquivo que pode continuar de onde parou (2.6+): `transferId` é o mesmo em todas
     /// as tentativas. Quem recebe responde FROM com quanto já tem.
     case send(id: Int, size: Int64, transferId: String, mime: String, name: String)
@@ -164,6 +167,10 @@ public enum Wire {
         case .ping: return Data("PING\n".utf8)
         case .pong: return Data("PONG\n".utf8)
         case .stop(let id): return Data("STOP \(id)\n".utf8)
+        case .partZ(let id, let data):
+            var d = Data("PARZ \(id)\n".utf8)
+            d.append(data)
+            return d
         case .send(let id, let size, let tid, let mime, let name): return Data("SEND \(id) \(size) \(tid) \(mime) \(name)\n".utf8)
         case .from(let id, let offset): return Data("FROM \(id) \(offset)\n".utf8)
         case .open(let id, let url): return Data("OPEN \(id) \(url)\n".utf8)
@@ -209,6 +216,9 @@ public enum Wire {
             return .fail(id: id, reason: parts[2])
         case "PING": return .ping
         case "PONG": return .pong
+        case "PARZ":
+            guard parts.count == 2, let id = Int(parts[1]), !body.isEmpty else { throw DecodeError.badMessage(header) }
+            return .partZ(id: id, data: body)
         case "SEND":
             guard parts.count == 6, let id = Int(parts[1]), let size = Int64(parts[2]), size >= 0,
                   Self.isTransferId(parts[3]), body.isEmpty else { throw DecodeError.badMessage(header) }

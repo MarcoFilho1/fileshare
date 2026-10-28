@@ -61,7 +61,7 @@ final class Wire {
     }
     static final int PART_SIZE = 512 * 1024;
 
-    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, OPEN, STOP, SEND, FROM, UNKNOWN }
+    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, OPEN, STOP, SEND, FROM, PARZ, UNKNOWN }
 
     /**
      * O que cada lado anuncia no HELLO: a versão do app e os recursos que ele entende. Vai no corpo
@@ -149,6 +149,8 @@ final class Wire {
         static Message held(int id, long copiedAt, String mime, byte[] data) { return new Message(Type.HELD, id, mime, data, copiedAt, 0, null); }
         static Message file(int id, long size, String mime, String name) { return new Message(Type.FILE, id, mime, null, 0, size, name); }
         static Message part(int id, byte[] data) { return new Message(Type.PART, id, null, data); }
+        /** Pedaço comprimido (DEFLATE cru); só para quem anunciou "zpart". */
+        static Message partZ(int id, byte[] data) { return new Message(Type.PARZ, id, null, data); }
         static Message ack(int id) { return new Message(Type.ACK, id, null, null); }
         static Message fail(int id, String reason) { return new Message(Type.FAIL, id, reason, null); }
         static Message ping() { return new Message(Type.PING, 0, null, null); }
@@ -194,6 +196,7 @@ final class Wire {
             case HELD: header = "HELD " + m.id + " " + m.copiedAt + " " + m.text + "\n"; break;
             case FILE: header = "FILE " + m.id + " " + m.size + " " + m.text + " " + m.name + "\n"; break;
             case PART: header = "PART " + m.id + "\n"; break;
+            case PARZ: header = "PARZ " + m.id + "\n"; break;
             case ACK: header = "ACK " + m.id + "\n"; break;
             case FAIL: header = "FAIL " + m.id + " " + m.text + "\n"; break;
             case PING: header = "PING\n"; break;
@@ -266,6 +269,9 @@ final class Wire {
                     return Message.fail(Integer.parseInt(parts[1]), parts[2]);
                 case "PING": return Message.ping();
                 case "PONG": return Message.pong();
+                case "PARZ":
+                    if (parts.length != 2 || body.length == 0) break;
+                    return Message.partZ(Integer.parseInt(parts[1]), body);
                 case "SEND": {
                     if (parts.length != 6 || body.length != 0 || !isTransferId(parts[3])) break;
                     long size = Long.parseLong(parts[2]);

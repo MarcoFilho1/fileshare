@@ -213,6 +213,52 @@ public class WireTest {
         assertEquals(5, Wire.decode("FROM 2 5\n".getBytes(StandardCharsets.UTF_8)).size);
     }
 
+    /** Mesmo vetor do PartCompressionTests.swift, feito pelo zlib do Python (DEFLATE cru). */
+    @Test
+    public void decodesSharedCompressionVector() throws IOException {
+        String hex = "edc8b109c0201000c0c1beb7b3ca041f79306015dc1fc7b0b92baf7dab9e997f45cf113bdf553b9a94524a29a594524a29a594524a29a594524a29e5bd3c";
+        byte[] z = new byte[hex.length() / 2];
+        for (int i = 0; i < z.length; i++) z[i] = (byte) Integer.parseInt(hex.substring(2 * i, 2 * i + 2), 16);
+        assertEquals("FileShare;Mac;tablet;".repeat(400), new String(PartCompression.decompress(z, Wire.PART_SIZE), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void compressionRoundTripAndLimits() throws IOException {
+        StringBuilder csv = new StringBuilder();
+        for (int i = 1; csv.length() < Wire.PART_SIZE; i++) csv.append(i).append(";Fulano de Tal;2026-10-28;R$ ").append(i % 97).append(",00\n");
+        byte[] text = java.util.Arrays.copyOf(csv.toString().getBytes(StandardCharsets.UTF_8), Wire.PART_SIZE);
+        byte[] small = PartCompression.compress(text, text.length);
+        assertTrue(small.length < text.length / 3);
+        assertArrayEquals(text, PartCompression.decompress(small, Wire.PART_SIZE));
+
+        byte[] random = new byte[Wire.PART_SIZE];
+        new java.util.Random(7).nextBytes(random);
+        assertEquals(null, PartCompression.compress(random, random.length)); // como um vídeo: vai como está
+
+        byte[] bomb = PartCompression.compress(new byte[Wire.PART_SIZE * 4], Wire.PART_SIZE * 4);
+        assertThrows(IOException.class, () -> PartCompression.decompress(bomb, Wire.PART_SIZE));
+        assertThrows(IOException.class, () -> PartCompression.decompress(new byte[]{(byte) 0xFF, 0, 0x13}, Wire.PART_SIZE));
+    }
+
+    @Test
+    public void compressionSkipsCompressedTypes() {
+        assertTrue(PartCompression.worthTrying("dados.csv", "text/csv"));
+        assertTrue(PartCompression.worthTrying("relatório.pdf", "application/pdf"));
+        assertFalse(PartCompression.worthTrying("aula.mp4", "video/mp4"));
+        assertFalse(PartCompression.worthTrying("foto.jpg", "image/jpeg"));
+        assertFalse(PartCompression.worthTrying("planilha.xlsx", "application/octet-stream"));
+    }
+
+    /** Mesmo texto do PartCompressionTests.swift. */
+    @Test
+    public void partZMatchesMacFormat() throws IOException {
+        byte[] bytes = Wire.messageBytes(Wire.Message.partZ(7, new byte[]{1, 2, 3}));
+        assertArrayEquals(new byte[]{'P', 'A', 'R', 'Z', ' ', '7', '\n', 1, 2, 3}, bytes);
+        Wire.Message m = Wire.decode(bytes);
+        assertEquals(Wire.Type.PARZ, m.type);
+        assertArrayEquals(new byte[]{1, 2, 3}, m.data);
+    }
+
     /** Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo. */
     @Test
     public void rejectsGarbage() {

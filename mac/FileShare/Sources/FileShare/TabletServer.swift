@@ -109,12 +109,14 @@ final class TabletServer {
         static let folders = "folder"
         /// Entende SEND/FROM: arquivos continuam de onde pararam se a conexão cair.
         static let resume = "resume"
+        /// Entende PARZ: pedaços comprimidos durante a viagem.
+        static let compressedParts = "zpart"
     }
 
     /// O que o Mac anuncia no HELLO. Cada recurso novo entra aqui quando estiver pronto.
     static let localInfo = PeerInfo(
         version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
-        capabilities: [Capability.held, Capability.battery, Capability.open, Capability.bigFiles, Capability.stop, Capability.resume])
+        capabilities: [Capability.held, Capability.battery, Capability.open, Capability.bigFiles, Capability.stop, Capability.resume, Capability.compressedParts])
     /// Cópia vinda do tablet; copiedAt (ms desde 1970) só vem quando ele a guardou com o Mac longe (HELD).
     private let onReceive: (_ payload: ClipPayload, _ copiedAt: Int64?) -> Void
     private let onState: (State) -> Void
@@ -142,8 +144,17 @@ final class TabletServer {
     /// pararam quando ele mandar o SEND de novo. Esquecidos depois de 24 h.
     private var partials: [String: IncomingFile] = [:]
     private static let partialLifetime: TimeInterval = 24 * 60 * 60
+    /// Compressão de um envio: liga se o tablet entende PARZ e o tipo não vem comprimido; desliga
+    /// sozinha depois de alguns pedaços seguidos sem ganho. Conta os bytes que passaram pela rede.
+    private final class Squeeze {
+        var enabled: Bool
+        var misses = 0
+        var wireBytes: Int64 = 0
+        init(enabled: Bool) { self.enabled = enabled }
+    }
+
     /// SEND já mandado, esperando o FROM do tablet para começar (ou continuar) os pedaços.
-    private var awaitingFrom: [Int: (handle: FileHandle, size: Int64, name: String)] = [:]
+    private var awaitingFrom: [Int: (handle: FileHandle, size: Int64, name: String, squeeze: Squeeze)] = [:]
     /// Tudo que vem do menu Compartilhar do tablet fica junto, em Downloads/FileShare.
     static let receivedFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("FileShare", isDirectory: true)
@@ -374,6 +385,7 @@ final class TabletServer {
         nextId += 1
         sendingId = id
         let startedAt = Date()
+        let squeeze = Squeeze(enabled: false) // decidido abaixo, com o tipo do arquivo
         pending[id] = { [weak self] result in
             guard let self else { return }
             try? handle.close()
@@ -383,7 +395,7 @@ final class TabletServer {
             case .success:
                 outbox.removeFirst()
                 finishOutgoing(item)
-                NSLog("FileShare: enviado ao tablet: %@", Wire.speed(size, since: startedAt))
+                NSLog("FileShare: enviado ao tablet: %@%@", Wire.speed(size, since: startedAt), Self.wireNote(squeeze.wireBytes, of: size))
                 fileEvent(.delivered(name: name))
             case .failure(SendError.cancelled):
                 outbox.removeFirst()
@@ -404,9 +416,10 @@ final class TabletServer {
         let (mime, wireName) = item.isFolder
             ? (session.peer.supports(Capability.folders) ? (Wire.folderMime, name) : ("application/zip", name + ".zip"))
             : (UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream", name)
+        squeeze.enabled = session.peer.supports(Capability.compressedParts) && PartCompression.worthTrying(name: wireName, mime: mime)
         if session.peer.supports(Capability.resume) {
             // o tablet responde FROM com quanto já tem deste arquivo
-            awaitingFrom[id] = (handle, size, name)
+            awaitingFrom[id] = (handle, size, name, squeeze)
             write(.send(id: id, size: size, transferId: item.transferId, mime: mime, name: wireName), to: session)
             queue.asyncAfter(deadline: .now() + Self.ackTimeout) { [weak self] in
                 guard let self, awaitingFrom.removeValue(forKey: id) != nil else { return }
@@ -414,12 +427,18 @@ final class TabletServer {
             }
         } else {
             write(.file(id: id, size: size, mime: mime, name: wireName), to: session)
-            sendPart(id, handle: handle, sent: 0, size: size, name: name, session: session)
+            sendPart(id, handle: handle, sent: 0, size: size, name: name, squeeze: squeeze, session: session)
         }
     }
 
     /// Manda um pedaço e só lê o próximo quando a rede aceitou este, para não pôr o arquivo inteiro na memória.
-    private func sendPart(_ id: Int, handle: FileHandle, sent: Int64, size: Int64, name: String, session: Session) {
+    /// " (rede: 210 MB, 21%)" quando a compressão economizou algo; vazio se não.
+    static func wireNote(_ wireBytes: Int64, of size: Int64) -> String {
+        guard wireBytes > 0, wireBytes < size else { return "" }
+        return " (rede: \(Wire.readable(wireBytes)), \(wireBytes * 100 / max(size, 1))%)"
+    }
+
+    private func sendPart(_ id: Int, handle: FileHandle, sent: Int64, size: Int64, name: String, squeeze: Squeeze, session: Session) {
         guard session === active, pending[id] != nil else { return }
         guard sent < size else {
             queue.asyncAfter(deadline: .now() + Self.fileAckTimeout) { [weak self] in
@@ -439,11 +458,24 @@ final class TabletServer {
             return
         }
         let total = sent + Int64(chunk.count)
-        write(.part(id: id, data: chunk), to: session) { [weak self] in
+        var message = WireMessage.part(id: id, data: chunk)
+        var wire = chunk.count
+        if squeeze.enabled {
+            if let small = PartCompression.compress(chunk) {
+                message = .partZ(id: id, data: small)
+                wire = small.count
+                squeeze.misses = 0
+            } else {
+                squeeze.misses += 1
+                if squeeze.misses >= PartCompression.giveUpAfter { squeeze.enabled = false } // não comprime: o resto vai direto
+            }
+        }
+        squeeze.wireBytes += Int64(wire)
+        write(message, to: session) { [weak self] in
             // cancelado ou caído enquanto este pedaço ia: não recria a barra de progresso
             guard let self, pending[id] != nil else { return }
             fileEvent(.progress(name: name, fraction: Double(total) / Double(max(size, 1))))
-            sendPart(id, handle: handle, sent: total, size: size, name: name, session: session)
+            sendPart(id, handle: handle, sent: total, size: size, name: name, squeeze: squeeze, session: session)
         }
     }
 
@@ -550,7 +582,7 @@ final class TabletServer {
                     break
                 }
                 if offset > 0 { NSLog("FileShare: o tablet já tinha %@ de %@; continuando", Wire.readable(offset), sending.name) }
-                sendPart(id, handle: sending.handle, sent: offset, size: sending.size, name: sending.name, session: session)
+                sendPart(id, handle: sending.handle, sent: offset, size: sending.size, name: sending.name, squeeze: sending.squeeze, session: session)
             case .file(let id, let size, let mime, let name):
                 do {
                     let file = try IncomingFile(name: name, mime: mime, size: size, directory: Self.receivedFolder)
@@ -560,24 +592,14 @@ final class TabletServer {
                     refuseFile(id, error, in: session)
                 }
             case .part(let id, let data):
-                guard let file = session.incoming[id] else { break } // arquivo já recusado
+                receivePart(id, data, in: session)
+            case .partZ(let id, let compressed):
+                guard session.incoming[id] != nil else { break } // arquivo já recusado
                 do {
-                    try file.append(data)
-                    if file.isComplete {
-                        finishFile(id, in: session)
-                    } else if file.size >= Self.showProgressFrom {
-                        let percent = Int(file.received * 100 / max(file.size, 1))
-                        if session.reportedPercent[id] != percent {
-                            session.reportedPercent[id] = percent
-                            fileEvent(.receiving(name: file.name, fraction: Double(percent) / 100))
-                        }
-                    }
+                    receivePart(id, try PartCompression.decompress(compressed), in: session)
                 } catch {
-                    session.incoming[id] = nil
-                    session.reportedPercent[id] = nil
-                    forgetPartial(file)
-                    if file.size >= Self.showProgressFrom { fileEvent(.receivingEnded(name: file.name)) }
-                    refuseFile(id, error, in: session)
+                    dropIncoming(id, in: session)
+                    refuseFile(id, IncomingFile.Failure.io("pedaço comprimido inválido"), in: session)
                 }
             case .stop(let id):
                 // o tablet cancelou o envio deste arquivo
@@ -611,6 +633,35 @@ final class TabletServer {
                 throw Wire.DecodeError.badMessage("mensagem fora de lugar")
             }
         }
+    }
+
+    /// Um pedaço do arquivo `id` (de PART, ou de PARZ já descomprimido).
+    private func receivePart(_ id: Int, _ data: Data, in session: Session) {
+        guard let file = session.incoming[id] else { return } // arquivo já recusado
+        do {
+            try file.append(data)
+            if file.isComplete {
+                finishFile(id, in: session)
+            } else if file.size >= Self.showProgressFrom {
+                let percent = Int(file.received * 100 / max(file.size, 1))
+                if session.reportedPercent[id] != percent {
+                    session.reportedPercent[id] = percent
+                    fileEvent(.receiving(name: file.name, fraction: Double(percent) / 100))
+                }
+            }
+        } catch {
+            dropIncoming(id, in: session)
+            refuseFile(id, error, in: session)
+        }
+    }
+
+    /// Tira o arquivo `id` da lista de chegando (recusado no meio); o pedaço é apagado.
+    private func dropIncoming(_ id: Int, in session: Session) {
+        guard let file = session.incoming.removeValue(forKey: id) else { return }
+        session.reportedPercent[id] = nil
+        forgetPartial(file)
+        file.discard()
+        if file.size >= Self.showProgressFrom { fileEvent(.receivingEnded(name: file.name)) }
     }
 
     private func forgetPartial(_ file: IncomingFile) {

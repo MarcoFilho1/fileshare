@@ -70,6 +70,8 @@ final class MacLink {
         static final String FOLDERS = "folder";
         /** Entende SEND/FROM: arquivos continuam de onde pararam se a conexão cair. */
         static final String RESUME = "resume";
+        /** Entende PARZ: pedaços comprimidos durante a viagem. */
+        static final String COMPRESSED_PARTS = "zpart";
 
         private Capability() {
         }
@@ -233,7 +235,8 @@ final class MacLink {
      * SEND com transferId: se a conexão cair, a próxima tentativa com o mesmo transferId continua de
      * onde o Mac parou.
      */
-    void sendFile(String name, String mime, long size, InputStream in, String transferId, LongConsumer progress,
+    /** Devolve quantos bytes do arquivo passaram pela rede (menos que o tamanho, se a compressão ajudou). */
+    long sendFile(String name, String mime, long size, InputStream in, String transferId, LongConsumer progress,
                   java.util.function.BooleanSupplier cancelled, long timeoutMs) throws Exception {
         if (!ready) throw new IOException("Mac não conectado");
         int id = nextId.getAndIncrement();
@@ -259,6 +262,11 @@ final class MacLink {
                 write(Wire.Message.file(id, size, mime, name));
             }
             byte[] buf = new byte[Wire.PART_SIZE];
+            // compressão: liga se o Mac entende PARZ e o tipo não vem comprimido; desliga sozinha
+            // depois de alguns pedaços seguidos sem ganho
+            boolean squeeze = macSupports(Capability.COMPRESSED_PARTS) && PartCompression.worthTrying(name, mime);
+            int misses = 0;
+            long wireBytes = 0;
             while (sent < size && !ack.isDone()) { // o Mac pode recusar no meio do caminho
                 if (cancelled.getAsBoolean()) {
                     // Mac 2.6+ apaga o que chegou ao receber STOP; um mais antigo, ao perder a conexão
@@ -267,11 +275,21 @@ final class MacLink {
                 }
                 int n = in.read(buf, 0, (int) Math.min(buf.length, size - sent));
                 if (n < 0) throw new IOException("o arquivo acabou antes do tamanho informado");
-                write(Wire.Message.part(id, Arrays.copyOf(buf, n)));
+                byte[] small = squeeze ? PartCompression.compress(buf, n) : null;
+                if (small != null) {
+                    write(Wire.Message.partZ(id, small));
+                    wireBytes += small.length;
+                    misses = 0;
+                } else {
+                    write(Wire.Message.part(id, Arrays.copyOf(buf, n)));
+                    wireBytes += n;
+                    if (squeeze && ++misses >= PartCompression.GIVE_UP_AFTER) squeeze = false;
+                }
                 sent += n;
                 progress.accept(sent);
             }
             ack.get(timeoutMs, TimeUnit.MILLISECONDS);
+            return wireBytes;
         } catch (ExecutionException e) {
             throw e.getCause() instanceof Exception cause ? cause : e;
         } finally {
@@ -388,6 +406,18 @@ final class MacLink {
             while (running) {
                 Wire.Message m = Wire.decode(channel.open(Wire.readFrame(in)));
                 lastReceivedAt = android.os.SystemClock.elapsedRealtime();
+                if (m.type == Wire.Type.PARZ) {
+                    // pedaço comprimido: descomprime e segue como um PART comum
+                    try {
+                        m = Wire.Message.part(m.id, PartCompression.decompress(m.data, Wire.PART_SIZE));
+                    } catch (IOException e) {
+                        if (incoming.containsKey(m.id)) {
+                            dropIncoming(m.id, incoming, reported);
+                            write(Wire.Message.fail(m.id, e.getMessage()));
+                        }
+                        continue;
+                    }
+                }
                 switch (m.type) {
                     case HELD:
                         listener.onHeld(m.text, m.data, m.copiedAt);
@@ -589,7 +619,7 @@ final class MacLink {
             version = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
         } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
         }
-        return new Wire.Peer(version, java.util.Set.of(Capability.BIG_FILES, Capability.STOP, Capability.FOLDERS, Capability.RESUME));
+        return new Wire.Peer(version, java.util.Set.of(Capability.BIG_FILES, Capability.STOP, Capability.FOLDERS, Capability.RESUME, Capability.COMPRESSED_PARTS));
     }
 
     private String deviceName() {
