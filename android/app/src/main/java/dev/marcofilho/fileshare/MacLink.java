@@ -59,6 +59,8 @@ final class MacLink {
     private final Context ctx;
     private final Listener listener;
     private final AtomicInteger nextId = new AtomicInteger(1);
+    /** Versão e recursos que o Mac anunciou no HELLO (vazio até a 2.3). */
+    private volatile Wire.Peer macPeer = Wire.Peer.NONE;
     private final Map<Integer, CompletableFuture<Void>> pending = new ConcurrentHashMap<>();
     private final Object sleepLock = new Object();
     private volatile boolean running;
@@ -220,9 +222,12 @@ final class MacLink {
             Wire.Message auth = Wire.decode(Wire.readFrame(in));
             if (auth.type != Wire.Type.AUTH) throw new IOException("expected AUTH");
             channel = new SecureChannel(pairing.key(), tabletNonce, auth.data);
-            write(Wire.Message.hello(deviceName()));
+            write(Wire.Message.hello(deviceName(), localPeer()));
             Wire.Message hello = Wire.decode(channel.open(Wire.readFrame(in)));
             if (hello.type != Wire.Type.HELLO) throw new IOException("expected HELLO");
+            macPeer = hello.peer;
+            Log.i(BridgeService.TAG, "Mac version " + (macPeer.version.isEmpty() ? "<= 2.3" : macPeer.version)
+                    + ", capabilities " + macPeer.capabilities);
             ready = true;
             lastReceivedAt = android.os.SystemClock.elapsedRealtime();
             Log.i(BridgeService.TAG, "connected (encrypted) to " + hello.text + " at " + mac.host() + ":" + mac.port());
@@ -286,6 +291,9 @@ final class MacLink {
                         }
                         break;
                     }
+                    case UNKNOWN:
+                        Log.i(BridgeService.TAG, "message " + m.text + " from a newer Mac; ignored");
+                        break;
                     default:
                         break;
                 }
@@ -341,6 +349,16 @@ final class MacLink {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    /** O que o tablet anuncia no HELLO. Cada recurso novo entra aqui quando estiver pronto. */
+    private Wire.Peer localPeer() {
+        String version = "dev";
+        try {
+            version = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
+        } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
+        }
+        return new Wire.Peer(version, java.util.Collections.emptySet());
     }
 
     private String deviceName() {

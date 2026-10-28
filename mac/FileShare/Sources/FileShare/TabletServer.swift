@@ -61,6 +61,8 @@ final class TabletServer {
         let startedAt = Date()
         var lastSeen = Date()
         var tabletName = "tablet"
+        /// Versão e recursos que o tablet anunciou no HELLO (vazio até a 2.3).
+        var peer = PeerInfo()
         /// Arquivos do menu Compartilhar ainda chegando, pelo id do FILE.
         var incoming: [Int: IncomingFile] = [:]
 
@@ -81,6 +83,10 @@ final class TabletServer {
     private let queue = DispatchQueue(label: "fileshare.server")
     private let macId: String
     private let macName = Host.current().localizedName ?? "Mac"
+    /// O que o Mac anuncia no HELLO. Cada recurso novo entra aqui quando estiver pronto.
+    static let localInfo = PeerInfo(
+        version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
+        capabilities: [])
     private let onReceive: (ClipPayload) -> Void
     private let onState: (State) -> Void
     private let onHeldDelivered: (ClipPayload) -> Void
@@ -355,8 +361,11 @@ final class TabletServer {
             session.channel = SecureChannel(pairingKey: key, tabletNonce: tabletNonce, macNonce: macNonce, role: .mac)
             session.phase = .awaitingHello
         case .awaitingHello:
-            guard case .hello(let name) = try open(frame, in: session) else { throw Wire.DecodeError.badMessage("esperava HELLO") }
-            write(.hello(name: macName), to: session)
+            guard case .hello(let name, let peer) = try open(frame, in: session) else { throw Wire.DecodeError.badMessage("esperava HELLO") }
+            write(.hello(name: macName, info: Self.localInfo), to: session)
+            session.peer = peer
+            NSLog("FileShare: tablet %@ (versão %@, recursos: %@)", name, peer.version.isEmpty ? "≤ 2.3" : peer.version,
+                  peer.capabilities.sorted().joined(separator: ","))
             session.phase = .ready
             session.lastSeen = Date()
             if !name.isEmpty { session.tabletName = name }
@@ -398,6 +407,8 @@ final class TabletServer {
                 write(.pong, to: session)
             case .pong:
                 break
+            case .unknown(let type):
+                NSLog("FileShare: mensagem %@ de um tablet mais novo, ignorada", type)
             case .auth, .hello, .held:
                 throw Wire.DecodeError.badMessage("mensagem fora de lugar")
             }

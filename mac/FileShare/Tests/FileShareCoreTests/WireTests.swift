@@ -17,6 +17,7 @@ struct WireTests {
     @Test(arguments: [
         WireMessage.auth(nonce: Data(repeating: 0xA0, count: 16)),
         .hello(name: "Galaxy Tab S9 FE"),
+        .hello(name: "Marco MacBook Air", info: PeerInfo(version: "2.4.0", capabilities: ["batt", "held"])),
         .clip(id: 1, payload: ClipPayload(mime: "image/png", data: Data([0x89, 0x50, 0x0A, 0x00]))),
         .held(id: 2, copiedAt: 1_792_000_000_123, payload: ClipPayload(mime: "text/plain", data: Data("guardado".utf8))),
         .file(id: 3, size: 1_048_576, mime: "application/pdf", name: "Aula 3 - resumo.pdf"),
@@ -53,7 +54,35 @@ struct WireTests {
         #expect(throws: Wire.DecodeError.frameTooLarge(0x7fff_ffff)) { try decoder.append(Data([0x7f, 0xff, 0xff, 0xff])) }
     }
 
-    @Test func rejectsUnknownMessage() {
-        #expect(throws: Wire.DecodeError.badMessage("HACK")) { try Wire.decodeMessage(Data("HACK\n".utf8)) }
+    /// Um tipo de uma versão mais nova não derruba a conexão: vira .unknown e é ignorado.
+    @Test func toleratesMessageFromNewerVersion() throws {
+        #expect(try Wire.decodeMessage(Data("BATT 72 charging\n".utf8)) == .unknown(type: "BATT"))
+        #expect(try Wire.decodeMessage(Data("NOTIF\ncorpo qualquer".utf8)) == .unknown(type: "NOTIF"))
+    }
+
+    /// Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo.
+    @Test(arguments: ["hack 1\n", "\n", "BATT1 2\n", "ÇÃO\n", "UMTIPOMUITOCOMPRIDO\n"])
+    func rejectsGarbage(_ text: String) {
+        #expect(throws: Wire.DecodeError.self) { try Wire.decodeMessage(Data(text.utf8)) }
+    }
+
+    /// Mesmo texto do WireTest.java: versão e recursos vão no corpo do HELLO.
+    @Test func helloInfoMatchesAndroidFormat() {
+        let bytes = Wire.messageBytes(.hello(name: "Marco MacBook Air", info: PeerInfo(version: "2.4.0", capabilities: ["held", "batt"])))
+        #expect(String(decoding: bytes, as: UTF8.self) == "HELLO Marco MacBook Air\nv=2.4.0\ncaps=batt,held\n")
+    }
+
+    /// Até a 2.3 o HELLO não tem corpo: o outro lado fica sem versão e sem recursos.
+    @Test func helloFromOldVersionHasNoInfo() throws {
+        let old = try Wire.decodeMessage(Data("HELLO Galaxy Tab S9 FE\n".utf8))
+        #expect(old == .hello(name: "Galaxy Tab S9 FE", info: PeerInfo()))
+        guard case .hello(_, let info) = old else { return }
+        #expect(!info.supports("batt"))
+    }
+
+    /// Chaves desconhecidas no corpo do HELLO são ignoradas, para o formato poder crescer.
+    @Test func helloIgnoresUnknownKeys() throws {
+        let m = try Wire.decodeMessage(Data("HELLO Tab\nv=2.6.0\ntema=escuro\ncaps=batt,,hist\nlixo\n".utf8))
+        #expect(m == .hello(name: "Tab", info: PeerInfo(version: "2.6.0", capabilities: ["batt", "hist"])))
     }
 }
