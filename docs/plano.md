@@ -19,7 +19,7 @@ Descobertas:
 
 ## Versões
 
-- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia · **v2.1.0** uso diário (etapa D) · **v2.2.0** ícone e interface nova · **v2.3.0** distribuição (site, DMG, APK assinado).
+- **v0.1.0** botão Enviar ao Mac · **v1.0.0** cópia automática tablet → Mac · **v1.1.0** app do Mac, Mac → tablet automático · **v2.0.0** Wi-Fi + pareamento por QR + criptografia · **v2.1.0** uso diário (etapa D) · **v2.2.0** ícone e interface nova · **v2.3.0** distribuição (site, DMG, APK assinado) · **v2.3.1** ícone azul.
 
 ## Etapa D: uso diário (v2.1.0)
 
@@ -31,9 +31,4 @@ Descobertas:
 
 ## Próximas etapas
 
-- T4: serviço do tablet durante uma noite inteira; colar no GoodNotes.
-- Assinatura estável do app do Mac, para não pedir acesso às Chaves a cada atualização, e leitura das Chaves fora da thread principal.
-- Tablet → Mac com o Mac fora do alcance: hoje só mostra um aviso; guardar e mandar depois.
-- Reconexão lenta do tablet logo depois de reinstalar o app.
-- Opção "Mac" na seleção inteligente da S Pen e guia de exceções de bateria do One UI.
-- Pesquisa: Quick Share no Mac (NearDrop).
+Ver [plano-proximas-versoes.md](plano-proximas-versoes.md) (v2.4 → v3.0).
