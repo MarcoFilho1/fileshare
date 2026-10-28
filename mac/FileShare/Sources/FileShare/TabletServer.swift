@@ -86,18 +86,21 @@ final class TabletServer {
     enum Capability {
         /// Aceita HELD do tablet: a cópia que ele guardou enquanto o Mac estava longe.
         static let held = "held"
+        /// Mostra a bateria do tablet (BATT) no painel.
+        static let battery = "batt"
     }
 
     /// O que o Mac anuncia no HELLO. Cada recurso novo entra aqui quando estiver pronto.
     static let localInfo = PeerInfo(
         version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
-        capabilities: [Capability.held])
+        capabilities: [Capability.held, Capability.battery])
     /// Cópia vinda do tablet; copiedAt (ms desde 1970) só vem quando ele a guardou com o Mac longe (HELD).
     private let onReceive: (_ payload: ClipPayload, _ copiedAt: Int64?) -> Void
     private let onState: (State) -> Void
     private let onHeldDelivered: (ClipPayload) -> Void
     private let onFile: (_ url: URL, _ mime: String, _ from: String) -> Void
     private let onFileEvent: (FileEvent) -> Void
+    private let onBattery: (_ level: Int, _ charging: Bool) -> Void
     /// Arquivos a enviar ao tablet, um de cada vez; ficam aqui enquanto ele dorme.
     private var outbox: [URL] = []
     private var sendingFile = false
@@ -120,13 +123,15 @@ final class TabletServer {
          onState: @escaping (State) -> Void,
          onHeldDelivered: @escaping (ClipPayload) -> Void,
          onFile: @escaping (_ url: URL, _ mime: String, _ from: String) -> Void,
-         onFileEvent: @escaping (FileEvent) -> Void) {
+         onFileEvent: @escaping (FileEvent) -> Void,
+         onBattery: @escaping (_ level: Int, _ charging: Bool) -> Void) {
         self.macId = macId
         self.onReceive = onReceive
         self.onState = onState
         self.onHeldDelivered = onHeldDelivered
         self.onFile = onFile
         self.onFileEvent = onFileEvent
+        self.onBattery = onBattery
         startWatchdog()
     }
 
@@ -417,6 +422,8 @@ final class TabletServer {
                 write(.pong, to: session)
             case .pong:
                 break
+            case .battery(let level, let charging):
+                DispatchQueue.main.async { self.onBattery(level, charging) }
             case .unknown(let type):
                 NSLog("FileShare: mensagem %@ de um tablet mais novo, ignorada", type)
             case .auth, .hello:

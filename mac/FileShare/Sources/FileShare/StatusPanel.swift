@@ -35,6 +35,12 @@ final class StatusModel {
     var anchorX = 0.5
     var link: Link = .searching
     var tabletName = "Tablet"
+    struct Battery: Equatable {
+        var level: Int
+        var charging: Bool
+    }
+    /// Bateria do tablet conectado (2.4+); nil sem conexão ou com um tablet mais antigo.
+    var battery: Battery?
     var paused = false
     var openAtLogin = false
     var notificationsAllowed = true
@@ -152,6 +158,9 @@ struct StatusPanelView: View {
                     }
                 }
                 Spacer(minLength: 0)
+                if let battery = model.battery, model.link == .connected {
+                    BatteryLabel(battery: battery)
+                }
                 if !model.paired {
                     Button(action: model.actions.pair) {
                         Text(L10n.t("Pair…", "Parear…"))
@@ -493,6 +502,37 @@ final class StatusPanelController {
                 if self.model.visible { self.place() }
                 self.followLayout()
             }
+        }
+    }
+}
+
+/// "72%" com o ícone de bateria do sistema; um raio quando está carregando.
+private struct BatteryLabel: View {
+    let battery: StatusModel.Battery
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text("\(battery.level)%")
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundStyle(.secondary)
+            Image(systemName: symbol)
+                .font(.system(size: 13))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(battery.level <= 15 && !battery.charging ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.t("Tablet battery \(battery.level)%", "Bateria do tablet \(battery.level)%")
+                            + (battery.charging ? L10n.t(", charging", ", carregando") : ""))
+    }
+
+    private var symbol: String {
+        if battery.charging { return "battery.100percent.bolt" }
+        switch battery.level {
+        case ..<13: return "battery.0percent"
+        case ..<38: return "battery.25percent"
+        case ..<63: return "battery.50percent"
+        case ..<88: return "battery.75percent"
+        default: return "battery.100percent"
         }
     }
 }

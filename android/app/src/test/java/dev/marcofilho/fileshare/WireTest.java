@@ -122,16 +122,28 @@ public class WireTest {
     /** Um tipo de uma versão mais nova não derruba a conexão: vira UNKNOWN e é ignorado. */
     @Test
     public void toleratesMessageFromNewerVersion() throws IOException {
-        Wire.Message m = Wire.decode("BATT 72 charging\n".getBytes(StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode("HIST 3 texto\n".getBytes(StandardCharsets.UTF_8));
         assertEquals(Wire.Type.UNKNOWN, m.type);
-        assertEquals("BATT", m.text);
+        assertEquals("HIST", m.text);
         assertEquals("NOTIF", Wire.decode("NOTIF\ncorpo qualquer".getBytes(StandardCharsets.UTF_8)).text);
+    }
+
+    /** Mesmo texto do WireTests.swift. */
+    @Test
+    public void batteryMatchesMacFormat() throws IOException {
+        assertEquals("BATT 7 1\n", new String(Wire.messageBytes(Wire.Message.battery(7, true)), StandardCharsets.UTF_8));
+        Wire.Message m = Wire.decode("BATT 72 0\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals(Wire.Type.BATT, m.type);
+        assertEquals(72, m.id);
+        assertEquals(0, m.copiedAt);
+        assertThrows(IOException.class, () -> Wire.decode("BATT 101 0\n".getBytes(StandardCharsets.UTF_8)));
+        assertThrows(IOException.class, () -> Wire.decode("BATT 50 sim\n".getBytes(StandardCharsets.UTF_8)));
     }
 
     /** Lixo continua sendo erro: só uma palavra curta em maiúsculas conta como tipo novo. */
     @Test
     public void rejectsGarbage() {
-        for (String text : new String[]{"hack 1\n", "\n", "BATT1 2\n", "ÇÃO\n", "UMTIPOMUITOCOMPRIDO\n"}) {
+        for (String text : new String[]{"hack 1\n", "\n", "HIST1 2\n", "ÇÃO\n", "UMTIPOMUITOCOMPRIDO\n"}) {
             assertThrows(text, IOException.class, () -> Wire.decode(text.getBytes(StandardCharsets.UTF_8)));
         }
     }

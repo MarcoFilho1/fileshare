@@ -27,7 +27,7 @@ final class Wire {
     static final long MAX_FILE_SIZE = 100L * 1024 * 1024;
     static final int PART_SIZE = 512 * 1024;
 
-    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, UNKNOWN }
+    enum Type { AUTH, HELLO, CLIP, HELD, FILE, PART, ACK, FAIL, PING, PONG, BATT, UNKNOWN }
 
     /**
      * O que cada lado anuncia no HELLO: a versão do app e os recursos que ele entende. Vai no corpo
@@ -113,6 +113,8 @@ final class Wire {
         static Message fail(int id, String reason) { return new Message(Type.FAIL, id, reason, null); }
         static Message ping() { return new Message(Type.PING, 0, null, null); }
         static Message pong() { return new Message(Type.PONG, 0, null, null); }
+        /** Bateria do tablet: id é o nível (0–100), copiedAt 1 se está carregando. Só para Mac com "batt". */
+        static Message battery(int level, boolean charging) { return new Message(Type.BATT, level, null, null, charging ? 1 : 0, 0, null); }
         /** Tipo de uma versão mais nova do Mac; text é o nome do tipo. */
         static Message unknown(String type) { return new Message(Type.UNKNOWN, 0, type, null); }
     }
@@ -146,6 +148,7 @@ final class Wire {
             case FAIL: header = "FAIL " + m.id + " " + m.text + "\n"; break;
             case PING: header = "PING\n"; break;
             case PONG: header = "PONG\n"; break;
+            case BATT: header = "BATT " + m.id + " " + m.copiedAt + "\n"; break;
             default: header = m.text + "\n"; break; // UNKNOWN: só nos testes
         }
         byte[] h = header.getBytes(StandardCharsets.UTF_8);
@@ -209,6 +212,12 @@ final class Wire {
                     return Message.fail(Integer.parseInt(parts[1]), parts[2]);
                 case "PING": return Message.ping();
                 case "PONG": return Message.pong();
+                case "BATT": {
+                    if (parts.length != 3 || !parts[2].matches("[01]")) break;
+                    int level = Integer.parseInt(parts[1]);
+                    if (level < 0 || level > 100) break;
+                    return Message.battery(level, parts[2].equals("1"));
+                }
                 default:
                     // Um tipo novo é uma palavra curta em maiúsculas; qualquer outra coisa é lixo.
                     if (parts[0].matches("[A-Z]{1,16}")) return Message.unknown(parts[0]);
