@@ -7,8 +7,8 @@ android {
         applicationId = 'dev.marcofilho.fileshare'
         minSdk = 33
         targetSdk = 36
-        versionCode = 9
-        versionName = '2.4.0'
+        versionCode = 10
+        versionName = '2.5.0'
     }
     // Chave definitiva (fora do repositório): scripts/build.sh passa o caminho e a senha, que fica
     // nas Chaves do macOS. Sem ela (ex.: outra máquina), o debug usa a chave de teste do Android.

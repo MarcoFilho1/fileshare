@@ -3,6 +3,7 @@
     <string name="a11y_desc">FileShare: notices when you tap \"Copy\" and sends what was copied to your Mac. It does not read the screen content.</string>
     <string name="a11y_label">FileShare: automatic copy</string>
     <string name="send_to_mac">Send to Mac</string>
+    <string name="open_on_mac">Open on Mac</string>
 
     <string name="tagline">Clipboard and files between this tablet and your Mac</string>
     <string name="unpaired_title">Not paired yet</string>

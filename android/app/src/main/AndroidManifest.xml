@@ -38,6 +38,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Menu Compartilhar, só para texto: abre o link no navegador do Mac. -->
+        <activity android:name=".OpenOnMacActivity" android:exported="true" android:label="@string/open_on_mac"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <service android:name=".BridgeService" android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 

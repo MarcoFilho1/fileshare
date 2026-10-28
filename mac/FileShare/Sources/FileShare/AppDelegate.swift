@@ -43,6 +43,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onBattery: { [weak self] level, charging in
                 if self?.status.battery == nil { NSLog("FileShare: bateria do tablet %d%%%@", level, charging ? " (carregando)" : "") }
                 self?.status.battery = .init(level: level, charging: charging)
+            },
+            onOpen: { [weak self] url in
+                guard let self, !self.paused else { return }
+                NSWorkspace.shared.open(url)
+                self.status.log(.fromTablet, L10n.t("Opened: ", "Aberto: ") + (url.host ?? url.absoluteString))
             })
         setUpNotifications()
         if let name = UserDefaults.standard.string(forKey: "tabletName") {
