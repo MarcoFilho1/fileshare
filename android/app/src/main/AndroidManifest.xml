@@ -73,6 +73,9 @@
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/copy_watch" />
         </service>
 
+        <!-- botão Cancelar da notificação "Esperando o Mac" -->
+        <receiver android:name=".Outbox$CancelReceiver" android:exported="false" />
+
         <receiver android:name=".StartReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

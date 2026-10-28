@@ -62,8 +62,6 @@ final class FileSender {
     }
 
     private static void sendOne(Context ctx, Item item) {
-        NotificationManager nm = ctx.getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Arquivos enviados ao Mac", NotificationManager.IMPORTANCE_LOW));
         String name = item.name();
         File copy = null;
         InputStream in = item.in();
@@ -84,38 +82,92 @@ final class FileSender {
             }
             MacLink link = waitForConnection();
             if (link == null) {
-                MacSender.toast(ctx, "Mac não conectado: " + name + " não foi enviado");
+                // Mac longe: guarda na fila, que vai quando ele reconectar
+                try {
+                    Outbox.enqueue(ctx, name, item.mime(), size, in, copy);
+                    copy = null; // agora é da fila
+                    Outbox.updateNotification(ctx);
+                    Log.i(BridgeService.TAG, "outbox: queued " + item.mime() + " " + size + " B");
+                    MacSender.toast(ctx, "Mac longe: " + name + " vai quando ele voltar");
+                } catch (IOException e) {
+                    Log.w(BridgeService.TAG, "outbox: not queued: " + e.getMessage());
+                    MacSender.toast(ctx, "Mac não conectado e " + e.getMessage() + ": " + name + " não foi enviado");
+                }
                 return;
             }
-
-            long total = size;
-            long[] lastUpdate = {0};
-            nm.notify(NOTIFICATION_ID, progress(ctx, name, 0, total));
-            link.sendFile(name, item.mime(), size, in, sent -> {
-                long now = SystemClock.elapsedRealtime();
-                if (now - lastUpdate[0] > 300) {
-                    lastUpdate[0] = now;
-                    nm.notify(NOTIFICATION_ID, progress(ctx, name, sent, total));
-                }
-            }, ACK_TIMEOUT_MS);
-            Log.i(BridgeService.TAG, "file sent to Mac: " + item.mime() + " " + size + " B");
-            MacSender.toast(ctx, "Enviado ao Mac: " + name + " (" + readable(size) + ")");
-        } catch (MacLink.RefusedException e) {
-            Log.w(BridgeService.TAG, "Mac refused file: " + e.getMessage());
-            MacSender.toast(ctx, "O Mac recusou " + name + ": " + e.getMessage());
-        } catch (TimeoutException e) {
-            MacSender.toast(ctx, "O Mac não confirmou " + name);
+            if (transfer(ctx, link, name, item.mime(), size, in) == Result.SENT) {
+                MacSender.toast(ctx, "Enviado ao Mac: " + name + " (" + readable(size) + ")");
+            }
         } catch (Exception e) {
             Log.e(BridgeService.TAG, "file send failed", e);
             MacSender.toast(ctx, "Falha ao enviar " + name + " ao Mac");
         } finally {
-            nm.cancel(NOTIFICATION_ID);
             try {
                 in.close();
             } catch (IOException ignored) {
             }
             if (copy != null) copy.delete();
         }
+    }
+
+    private enum Result { SENT, REFUSED, FAILED }
+
+    /** Manda um arquivo com o progresso na notificação; avisa recusa e falha com um toast. */
+    private static Result transfer(Context ctx, MacLink link, String name, String mime, long size, InputStream in) {
+        NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+        nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Arquivos enviados ao Mac", NotificationManager.IMPORTANCE_LOW));
+        try {
+            long[] lastUpdate = {0};
+            nm.notify(NOTIFICATION_ID, progress(ctx, name, 0, size));
+            link.sendFile(name, mime, size, in, sent -> {
+                long now = SystemClock.elapsedRealtime();
+                if (now - lastUpdate[0] > 300) {
+                    lastUpdate[0] = now;
+                    nm.notify(NOTIFICATION_ID, progress(ctx, name, sent, size));
+                }
+            }, ACK_TIMEOUT_MS);
+            Log.i(BridgeService.TAG, "file sent to Mac: " + mime + " " + size + " B");
+            return Result.SENT;
+        } catch (MacLink.RefusedException e) {
+            Log.w(BridgeService.TAG, "Mac refused file: " + e.getMessage());
+            MacSender.toast(ctx, "O Mac recusou " + name + ": " + e.getMessage());
+            return Result.REFUSED;
+        } catch (TimeoutException e) {
+            MacSender.toast(ctx, "O Mac não confirmou " + name);
+            return Result.FAILED;
+        } catch (Exception e) {
+            Log.e(BridgeService.TAG, "file send failed", e);
+            MacSender.toast(ctx, "Falha ao enviar " + name + " ao Mac");
+            return Result.FAILED;
+        } finally {
+            nm.cancel(NOTIFICATION_ID);
+        }
+    }
+
+    /**
+     * Conexão pronta: manda, na mesma fila dos envios, os arquivos que esperavam o Mac. Para no
+     * primeiro que falhar (a conexão caiu de novo); um arquivo recusado sai da fila.
+     */
+    static void drainOutbox(Context ctx) {
+        Context app = ctx.getApplicationContext();
+        QUEUE.execute(() -> {
+            int sent = 0;
+            for (Outbox.QueuedFile f : Outbox.list(app)) {
+                MacLink link = MacLink.current;
+                if (link == null || !link.isConnected()) break;
+                Result r;
+                try (InputStream in = new FileInputStream(f.data())) {
+                    r = transfer(app, link, f.name(), f.mime(), f.size(), in);
+                } catch (IOException e) {
+                    r = Result.REFUSED; // arquivo da fila ilegível: não adianta tentar de novo
+                }
+                if (r == Result.FAILED) break;
+                Outbox.remove(f);
+                if (r == Result.SENT) sent++;
+            }
+            Outbox.updateNotification(app);
+            if (sent > 0) MacSender.toast(app, sent == 1 ? "Arquivo guardado enviado ao Mac" : sent + " arquivos guardados enviados ao Mac");
+        });
     }
 
     /**

@@ -20,6 +20,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: PasteboardWatcher!
     private var connected = false
     private var paused = false
+    /// Última vez que você copiou algo no Mac: uma cópia guardada no tablet mais antiga que isso não a substitui.
+    private var lastLocalCopyAt: Date?
 
     private var status: StatusModel { statusPanel.model }
 
@@ -31,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         server = TabletServer(
             macId: PairingStore.macId,
-            onReceive: { [weak self] payload in self?.received(payload) },
+            onReceive: { [weak self] payload, copiedAt in self?.received(payload, copiedAt: copiedAt) },
             onState: { [weak self] state in self?.update(state) },
             onHeldDelivered: { [weak self] payload in
                 self?.status.log(.toTablet, L10n.t("Delivered on wake: ", "Entregue ao acordar: ") + Self.describe(payload))
@@ -117,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func copied(_ payload: ClipPayload) {
+        lastLocalCopyAt = Date()
         guard !paused else { return }
         server.send(payload) { [weak self] result in
             switch result {
@@ -127,10 +130,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func received(_ payload: ClipPayload) {
+    private func received(_ payload: ClipPayload, copiedAt: Int64? = nil) {
         guard !paused else { return }
+        if let copiedAt, let mine = lastLocalCopyAt, Double(copiedAt) / 1000 < mine.timeIntervalSince1970 {
+            // Cópia que o tablet guardou com o Mac longe, mas você copiou algo aqui depois: fica a sua.
+            NSLog("FileShare: cópia guardada no tablet é mais antiga que a última cópia do Mac; ignorada")
+            return
+        }
         if PasteboardWriter.write(payload, to: .general) {
-            status.log(.fromTablet, Self.describe(payload))
+            status.log(.fromTablet, (copiedAt == nil ? "" : L10n.t("Saved on the tablet: ", "Guardado no tablet: ")) + Self.describe(payload))
         } else {
             status.log(.failed, L10n.t("Couldn't open the received image", "Não consegui abrir a imagem recebida"))
         }

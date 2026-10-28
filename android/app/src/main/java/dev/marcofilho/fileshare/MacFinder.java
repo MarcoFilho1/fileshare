@@ -26,9 +26,12 @@ final class MacFinder {
     private MacFinder() {
     }
 
-    /** Bloqueia até achar o Mac ou estourar o tempo; retorna null se não achou. */
+    /**
+     * Bloqueia até achar o Mac, estourar o tempo ou `stop` pedir (rede mudou, tela ligou: vale
+     * recomeçar a busca); retorna null se não achou.
+     */
     @SuppressWarnings("deprecation") // resolveService: a alternativa só existe a partir do Android 14
-    static Found find(Context ctx, String macId, long timeoutMs) throws InterruptedException {
+    static Found find(Context ctx, String macId, long timeoutMs, java.util.function.BooleanSupplier stop) throws InterruptedException {
         NsdManager nsd = ctx.getSystemService(NsdManager.class);
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<Found> result = new AtomicReference<>();
@@ -92,7 +95,11 @@ final class MacFinder {
 
         nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discovery);
         try {
-            done.await(timeoutMs, TimeUnit.MILLISECONDS);
+            long until = android.os.SystemClock.elapsedRealtime() + timeoutMs;
+            long left;
+            while ((left = until - android.os.SystemClock.elapsedRealtime()) > 0 && !stop.getAsBoolean()) {
+                if (done.await(Math.min(left, 500), TimeUnit.MILLISECONDS)) break;
+            }
         } finally {
             try {
                 nsd.stopServiceDiscovery(discovery);
