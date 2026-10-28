@@ -83,11 +83,17 @@ final class TabletServer {
     private let queue = DispatchQueue(label: "fileshare.server")
     private let macId: String
     private let macName = Host.current().localizedName ?? "Mac"
+    enum Capability {
+        /// Aceita HELD do tablet: a cópia que ele guardou enquanto o Mac estava longe.
+        static let held = "held"
+    }
+
     /// O que o Mac anuncia no HELLO. Cada recurso novo entra aqui quando estiver pronto.
     static let localInfo = PeerInfo(
         version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
-        capabilities: [])
-    private let onReceive: (ClipPayload) -> Void
+        capabilities: [Capability.held])
+    /// Cópia vinda do tablet; copiedAt (ms desde 1970) só vem quando ele a guardou com o Mac longe (HELD).
+    private let onReceive: (_ payload: ClipPayload, _ copiedAt: Int64?) -> Void
     private let onState: (State) -> Void
     private let onHeldDelivered: (ClipPayload) -> Void
     private let onFile: (_ url: URL, _ mime: String, _ from: String) -> Void
@@ -110,7 +116,7 @@ final class TabletServer {
     private var watchdog: DispatchSourceTimer?
 
     init(macId: String,
-         onReceive: @escaping (ClipPayload) -> Void,
+         onReceive: @escaping (_ payload: ClipPayload, _ copiedAt: Int64?) -> Void,
          onState: @escaping (State) -> Void,
          onHeldDelivered: @escaping (ClipPayload) -> Void,
          onFile: @escaping (_ url: URL, _ mime: String, _ from: String) -> Void,
@@ -381,7 +387,11 @@ final class TabletServer {
             case .clip(let id, let payload):
                 write(.ack(id: id), to: session)
                 held.discard() // o que veio do tablet é mais novo que o que estava guardado
-                DispatchQueue.main.async { self.onReceive(payload) }
+                DispatchQueue.main.async { self.onReceive(payload, nil) }
+            case .held(let id, let copiedAt, let payload):
+                // O tablet guardou esta cópia enquanto o Mac estava longe (2.4+).
+                write(.ack(id: id), to: session)
+                DispatchQueue.main.async { self.onReceive(payload, copiedAt) }
             case .file(let id, let size, let mime, let name):
                 do {
                     let file = try IncomingFile(name: name, mime: mime, size: size, directory: Self.receivedFolder)
@@ -409,7 +419,7 @@ final class TabletServer {
                 break
             case .unknown(let type):
                 NSLog("FileShare: mensagem %@ de um tablet mais novo, ignorada", type)
-            case .auth, .hello, .held:
+            case .auth, .hello:
                 throw Wire.DecodeError.badMessage("mensagem fora de lugar")
             }
         }

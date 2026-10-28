@@ -92,7 +92,18 @@ public class BridgeService extends Service {
                 public void onFile(Uri uri, String name, String mime, String macName) {
                     notifyFile(uri, name, mime, macName);
                 }
+
+                @Override
+                public void onConnected() {
+                    // Em outra thread: a entrega espera a confirmação, que chega pela thread da conexão.
+                    MacLink current = link;
+                    new Thread(() -> {
+                        MacSender.deliverHeld(BridgeService.this, current);
+                        FileSender.drainOutbox(BridgeService.this);
+                    }, "fileshare-outbox").start();
+                }
             });
+            Outbox.updateNotification(this); // fila que sobrou de antes de reiniciar
             link.start();
             networkCallback = new ConnectivityManager.NetworkCallback() {
                 @Override
