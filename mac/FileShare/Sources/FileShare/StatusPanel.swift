@@ -1,4 +1,5 @@
 import AppKit
+import FileShareCore
 import Observation
 import SwiftUI
 
@@ -28,6 +29,7 @@ final class StatusModel {
         var pair: () -> Void = {}
         var forget: () -> Void = {}
         var enableNotifications: () -> Void = {}
+        var recopy: (ClipHistory.Entry) -> Void = { _ in }
         var quit: () -> Void = {}
     }
 
@@ -45,6 +47,11 @@ final class StatusModel {
     var openAtLogin = false
     var notificationsAllowed = true
     private(set) var activity: [Activity] = []
+    /// Últimas cópias trocadas (aba Cópias), só na memória.
+    private(set) var history = ClipHistory()
+    /// Miniaturas das imagens do histórico, feitas uma vez ao guardar.
+    private(set) var thumbnails: [UUID: NSImage] = [:]
+    var showingHistory = false
     /// Arquivo indo para o tablet agora.
     var sending: (name: String, fraction: Double)?
     var actions = Actions()
@@ -54,6 +61,32 @@ final class StatusModel {
     func log(_ kind: Activity.Kind, _ text: String) {
         activity.insert(Activity(kind: kind, text: text, date: Date()), at: 0)
         if activity.count > 4 { activity.removeLast(activity.count - 4) }
+    }
+
+    /// Guarda uma cópia trocada com o tablet no histórico.
+    func remember(_ payload: ClipPayload, fromTablet: Bool) {
+        history.add(payload, fromTablet: fromTablet)
+        if payload.isImage, let id = history.entries.first?.id, let image = NSImage(data: payload.data) {
+            thumbnails[id] = Self.thumbnail(image)
+        }
+        let ids = Set(history.entries.map(\.id))
+        thumbnails = thumbnails.filter { ids.contains($0.key) }
+    }
+
+    func clearHistory() {
+        history.removeAll()
+        thumbnails.removeAll()
+    }
+
+    private static func thumbnail(_ image: NSImage) -> NSImage {
+        let side: CGFloat = 44 // 22 pt em tela Retina
+        let size = image.size.width >= image.size.height
+            ? NSSize(width: side, height: side * image.size.height / max(image.size.width, 1))
+            : NSSize(width: side * image.size.width / max(image.size.height, 1), height: side)
+        return NSImage(size: size, flipped: false) { rect in
+            image.draw(in: rect)
+            return true
+        }
     }
 
     /// O que muda a altura do painel (para a janela acompanhar).
@@ -199,9 +232,54 @@ struct StatusPanelView: View {
 
     private var activityTile: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L10n.t("Recent", "Recentes"))
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                TabLabel(title: L10n.t("Recent", "Recentes"), selected: !model.showingHistory) { model.showingHistory = false }
+                TabLabel(title: L10n.t("Copies", "Cópias"), selected: model.showingHistory) { model.showingHistory = true }
+                Spacer(minLength: 0)
+                if model.showingHistory && !model.history.entries.isEmpty {
+                    Button(L10n.t("Clear", "Limpar")) { withAnimation(.smooth(duration: 0.2)) { model.clearHistory() } }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if model.showingHistory {
+                historyList
+            } else {
+                activityList
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Tile())
+        .animation(.smooth(duration: 0.25), value: model.activity)
+    }
+
+    /// Aba Cópias: as últimas 10, com rolagem dentro da mesma altura das 4 linhas de atividade.
+    private var historyList: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(model.history.entries) { entry in
+                    HistoryRow(entry: entry, thumbnail: model.thumbnails[entry.id]) { model.actions.recopy(entry) }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: Self.activityHeight, maxHeight: Self.activityHeight, alignment: .top)
+        .overlay {
+            if model.history.entries.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.tertiary)
+                    Text(L10n.t("Copies you exchange show up here.", "As cópias trocadas aparecem aqui."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var activityList: some View {
             VStack(alignment: .leading, spacing: 8) {
             if let sending = model.sending {
                 HStack(spacing: 10) {
@@ -248,11 +326,79 @@ struct StatusPanelView: View {
                 }
             }
             .clipped()
+    }
+}
+
+/// Título de aba pequeno, como os da Central de Controle.
+private struct TabLabel: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+                .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Tile())
-        .animation(.smooth(duration: 0.25), value: model.activity)
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// Uma cópia do histórico: miniatura ou ícone de texto, a primeira linha, de onde veio e quando.
+/// Clicar recoloca a cópia no Mac e no tablet.
+private struct HistoryRow: View {
+    let entry: ClipHistory.Entry
+    let thumbnail: NSImage?
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Group {
+                    if let thumbnail {
+                        Image(nsImage: thumbnail).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: entry.payload.isImage ? "photo" : "text.alignleft")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.primary.opacity(0.08))
+                    }
+                }
+                .frame(width: 22, height: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                Text(title)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 4)
+                Image(systemName: entry.fromTablet ? "ipad.landscape" : "laptopcomputer")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                Text(entry.date, style: .time)
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+            .frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .accessibilityLabel(title + ", " + (entry.fromTablet ? L10n.t("from the tablet", "do tablet") : L10n.t("from the Mac", "do Mac")))
+        .accessibilityHint(L10n.t("Copies it again on the Mac and the tablet", "Copia de novo no Mac e no tablet"))
+    }
+
+    private var title: String {
+        if entry.payload.isImage {
+            return L10n.t("Image", "Imagem") + " (\(ByteCountFormatter.string(fromByteCount: Int64(entry.payload.data.count), countStyle: .file)))"
+        }
+        return ClipHistory.title(of: entry.payload)
     }
 }
 

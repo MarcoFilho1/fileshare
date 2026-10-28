@@ -99,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pair: { [weak self] in self?.statusPanel.hide(); self?.pair() },
             forget: { [weak self] in self?.statusPanel.hide(); self?.confirmForget() },
             enableNotifications: { [weak self] in self?.statusPanel.hide(); self?.openNotificationSettings() },
+            recopy: { [weak self] entry in self?.statusPanel.hide(); self?.recopy(entry) },
             quit: { NSApp.terminate(nil) })
         updateIcon()
     }
@@ -127,11 +128,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !paused else { return }
         server.send(payload) { [weak self] result in
             switch result {
-            case .success(.delivered): self?.status.log(.toTablet, Self.describe(payload))
-            case .success(.held): self?.status.log(.waiting, Self.describe(payload))
+            case .success(.delivered):
+                self?.status.log(.toTablet, Self.describe(payload))
+                self?.status.remember(payload, fromTablet: false)
+            case .success(.held):
+                self?.status.log(.waiting, Self.describe(payload))
+                self?.status.remember(payload, fromTablet: false)
             case .failure(let error): self?.status.log(.failed, error.localizedDescription)
             }
         }
+    }
+
+    /// Clique numa cópia do histórico: volta a ser a cópia atual do Mac e vai de novo para o tablet.
+    private func recopy(_ entry: ClipHistory.Entry) {
+        guard PasteboardWriter.write(entry.payload, to: .general) else {
+            return status.log(.failed, L10n.t("Couldn't copy that again", "Não consegui copiar de novo"))
+        }
+        copied(entry.payload) // o PasteboardWriter marca a cópia como do tablet; aqui ela é sua
     }
 
     private func received(_ payload: ClipPayload, copiedAt: Int64? = nil) {
@@ -142,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         if PasteboardWriter.write(payload, to: .general) {
+            status.remember(payload, fromTablet: true)
             status.log(.fromTablet, (copiedAt == nil ? "" : L10n.t("Saved on the tablet: ", "Guardado no tablet: ")) + Self.describe(payload))
         } else {
             status.log(.failed, L10n.t("Couldn't open the received image", "Não consegui abrir a imagem recebida"))
@@ -410,7 +424,18 @@ extension AppDelegate {
             status.log(.toTablet, L10n.t("Image (1.2 MB)", "Imagem (1,2 MB)"))
             status.sending = (L10n.t("Class 7 - slides.pdf", "Aula 7 - slides.pdf"), 0.45)
         }
-        if state == "status" { status.battery = .init(level: 72, charging: false) }
+        if state == "status" || state == "status-history" { status.battery = .init(level: 72, charging: false) }
+        if state == "status-history" {
+            let text = { (s: String) in ClipPayload(mime: "text/plain", data: Data(s.utf8)) }
+            status.remember(text(L10n.t("Chapter 4 - photosynthesis summary", "Capítulo 4 - resumo de fotossíntese")), fromTablet: true)
+            if let icon = NSApp.applicationIconImage.tiffRepresentation, let png = NSBitmapImageRep(data: icon)?.representation(using: .png, properties: [:]) {
+                status.remember(ClipPayload(mime: "image/png", data: png), fromTablet: false)
+            }
+            status.remember(text("https://marcofilho1.github.io/fileshare/"), fromTablet: false)
+            status.remember(text(L10n.t("Meeting at 3pm, room 2", "Reunião às 15h na sala 2")), fromTablet: true)
+            status.remember(text(L10n.t("Exercises 1 to 12, page 87", "Exercícios 1 a 12, página 87")), fromTablet: false)
+            status.showingHistory = true
+        }
         statusPanel.keepOpen = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             if state == "pairing" || state == "paired" {
