@@ -112,7 +112,7 @@ No Samsung Notes (ou em qualquer app), toque em **⋮ → Compartilhar** e escol
 
 ### Um painel que parece parte do macOS
 
-Clique no ⇄ para abrir um painel no estilo da Central de Controle: o tablet e a conexão, botões redondos de **Sync** (pausar) e **Abrir ao iniciar**, a atividade recente com o progresso dos arquivos e atalhos para enviar um arquivo ou abrir os recebidos.
+Clique no ⇄ para abrir um painel no estilo da Central de Controle: o tablet, a conexão e a bateria, botões redondos de **Sync** (pausar) e **Abrir ao iniciar**, a atividade recente com o progresso dos arquivos e atalhos para enviar um arquivo ou abrir os recebidos.
 
 <p align="center">
   <picture>
@@ -127,9 +127,9 @@ Clique no ⇄ para abrir um painel no estilo da Central de Controle: o tablet e 
 
 Os textos do app acompanham o idioma do aparelho; as imagens do Mac estão em inglês porque o Mac usado nelas está em inglês.
 
-### Tablet dormindo? Ele espera
+### Um longe do outro? Ele espera
 
-O Mac guarda a última cópia por até 10 minutos e os arquivos ficam na fila; assim que a tela do tablet liga, ele reconecta e recebe tudo. Os dois apps sobem sozinhos: o do Mac ao entrar no sistema, o serviço do tablet depois de reiniciar ou atualizar.
+Nos dois sentidos. O Mac guarda a última cópia por até 10 minutos e os arquivos ficam na fila até o tablet acordar. O tablet faz o mesmo quando o Mac está longe: a última cópia espera 10 minutos e os arquivos compartilhados esperam até 24 horas, com o aviso **Esperando o Mac** e o botão **Cancelar**. Quando os dois se encontram de novo na rede (em poucos segundos), tudo é entregue; se você copiou algo mais novo enquanto isso, a sua cópia mais nova é que fica. Os dois apps sobem sozinhos: o do Mac ao entrar no sistema, o serviço do tablet depois de reiniciar ou atualizar.
 
 ## Perguntas frequentes
 
