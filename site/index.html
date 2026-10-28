@@ -11,10 +11,10 @@
 <title>FileShare · seu Mac e seu tablet, juntos</title>
 <link rel="icon" href="favicon.png">
 <link rel="preload" href="fonts/InterTight.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=93a2c156">
-<link rel="stylesheet" href="scenes.css?v=93a2c156">
-<script src="lang.js?v=93a2c156"></script>
-<script src="app.js?v=93a2c156" defer></script>
+<link rel="stylesheet" href="style.css?v=6592eccb">
+<link rel="stylesheet" href="scenes.css?v=6592eccb">
+<script src="lang.js?v=6592eccb"></script>
+<script src="app.js?v=6592eccb" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -49,7 +49,7 @@
 <div class="banner" id="banner">
   <div class="in">
     <span class="tag">★ <span lang="pt">NOVO</span><span lang="en">NEW</span></span>
-    <span><span lang="pt">v2.5.0: histórico das últimas cópias no Mac e links que abrem no outro aparelho</span><span lang="en">v2.5.0: your latest copies on the Mac and links that open on the other device</span></span>
+    <span><span lang="pt">v2.6.0: arquivos sem limite de tamanho, pastas inteiras e envio que continua se o Wi-Fi cair</span><span lang="en">v2.6.0: files of any size, whole folders and transfers that resume if the Wi-Fi drops</span></span>
     <span class="sep" aria-hidden="true">·</span>
     <a href="https://github.com/MarcoFilho1/fileshare/releases/latest" target="_blank" rel="noopener"><span lang="pt">Ver novidades →</span><span lang="en">What's new →</span></a>
     <button class="x" type="button" aria-label="Fechar / Close">×</button>
@@ -192,7 +192,7 @@
             <span class="num">02 · Mac → tablet</span>
             <h3 class="display"><span lang="pt">Arraste o arquivo até o ⇄.</span><span lang="en">Drag the file to ⇄.</span></h3>
             <p><span lang="pt">Chegou perto do ícone na barra de menu, o painel Send to Tablet aparece. Soltou, o arquivo chega no tablet, mesmo que ele esteja dormindo.</span><span lang="en">Get close to the menu bar icon and the Send to Tablet panel appears. Let go and the file lands on the tablet, even if it's asleep.</span></p>
-            <ul class="ticks"><li><span lang="pt">Ou pelo Finder: botão direito → Enviar ao tablet</span><span lang="en">Or from the Finder: right-click → Send to tablet</span></li><li><span lang="pt">Até 100 MB por arquivo</span><span lang="en">Up to 100 MB per file</span></li></ul>
+            <ul class="ticks"><li><span lang="pt">Ou pelo Finder: botão direito → Enviar ao tablet</span><span lang="en">Or from the Finder: right-click → Send to tablet</span></li><li><span lang="pt">Até sem limite de tamanho</span><span lang="en">Up to any size</span></li></ul>
             <div class="art-slot"></div>
           </article>
           <article class="item" data-art="2">
@@ -377,8 +377,8 @@
       </article>
       <article class="fcard">
         <h3><span lang="pt">Arquivos nos dois sentidos</span><span lang="en">Files both ways</span></h3>
-        <p><span lang="pt">PDFs, fotos e documentos. No Mac em Downloads › FileShare; no tablet em Download › FileShare.</span><span lang="en">PDFs, photos and documents. On the Mac in Downloads › FileShare; on the tablet in Download › FileShare.</span></p>
-        <div class="vis"><div class="big">100 MB</div><div class="eyebrow" style="margin-top:8px"><span lang="pt">por arquivo</span><span lang="en">per file</span></div></div>
+        <p><span lang="pt">PDFs, vídeos e pastas inteiras, de qualquer tamanho. Se o Wi-Fi cair no meio, continua de onde parou.</span><span lang="en">PDFs, videos and whole folders, of any size. If the Wi-Fi drops halfway, it picks up where it stopped.</span></p>
+        <div class="vis"><div class="big">30 MB/s</div><div class="eyebrow" style="margin-top:8px"><span lang="pt">com planilhas e textos, pelo Wi-Fi</span><span lang="en">with spreadsheets and text, over Wi-Fi</span></div></div>
       </article>
       <article class="fcard">
         <h3><span lang="pt">Avisos que abrem o arquivo</span><span lang="en">Notices that open the file</span></h3>
@@ -474,11 +474,15 @@
         </details>
         <details>
           <summary><span lang="pt">O que dá para copiar e enviar?</span><span lang="en">What can I copy and send?</span><span class="plus"></span></summary>
-          <div class="answer"><div><span lang="pt">Pela área de transferência: <b>texto e imagens</b>, inclusive prints do Mac (⌘⇧4). Como arquivo: PDFs, fotos, documentos e o que mais quiser, <b>até 100 MB cada</b>. Cópias feitas em gerenciadores de senha são ignoradas de propósito.</span><span lang="en">Through the clipboard: <b>text and images</b>, Mac screenshots (⌘⇧4) included. As files: PDFs, photos, documents and anything else, <b>up to 100 MB each</b>. Copies from password managers are ignored on purpose.</span></div></div>
+          <div class="answer"><div><span lang="pt">Pela área de transferência: <b>texto e imagens</b>, inclusive prints do Mac (⌘⇧4). Como arquivo: PDFs, fotos, documentos e o que mais quiser, <b>de qualquer tamanho, e pastas inteiras</b>. Cópias feitas em gerenciadores de senha são ignoradas de propósito.</span><span lang="en">Through the clipboard: <b>text and images</b>, Mac screenshots (⌘⇧4) included. As files: PDFs, photos, documents and anything else, <b>of any size, and whole folders</b>. Copies from password managers are ignored on purpose.</span></div></div>
         </details>
         <details>
           <summary><span lang="pt">E se o tablet estiver dormindo ou o Mac estiver longe?</span><span lang="en">What if the tablet is asleep or the Mac is away?</span><span class="plus"></span></summary>
           <div class="answer"><div><span lang="pt">Nada se perde. Quem envia guarda a última cópia por até 10 minutos, e os arquivos ficam na fila: no Mac até o tablet acordar, no tablet por até 24 horas, com um aviso "Esperando o Mac" e o botão Cancelar. Quando os dois se encontram de novo na rede, em poucos segundos, tudo é entregue. Se você copiou algo mais novo enquanto isso, a sua cópia mais nova é que fica.</span><span lang="en">Nothing is lost. The sender keeps your last copy for up to 10 minutes and files wait in a queue: on the Mac until the tablet wakes, on the tablet for up to 24 hours, with a "Waiting for the Mac" notice and a Cancel button. As soon as they find each other on the network again, within seconds, everything is delivered. If you copied something newer in the meantime, your newer copy stays.</span></div></div>
+        </details>
+        <details>
+          <summary><span lang="pt">É rápido?</span><span lang="en">Is it fast?</span><span class="plus"></span></summary>
+          <div class="answer"><div><span lang="pt">Depende mais do seu Wi-Fi do que do app. Com o Mac e o tablet numa rede de 5 GHz, medimos 1 GB em 95 segundos (11 MB/s) do Mac para o tablet, na faixa de um pen drive USB 2.0. Planilhas, CSV e textos vão comprimidos sem você perceber e chegam ainda mais rápido: um CSV de 500 MB levou 16 segundos (30 MB/s). Numa rede de 2,4 GHz, conte com uns 3 a 5 MB/s. O arquivo sempre chega idêntico.</span><span lang="en">It depends more on your Wi-Fi than on the app. With the Mac and the tablet on a 5 GHz network, we measured 1 GB in 95 seconds (11 MB/s) from the Mac to the tablet, in the range of a USB 2.0 flash drive. Spreadsheets, CSV and text are compressed behind the scenes and arrive even faster: a 500 MB CSV took 16 seconds (30 MB/s). On a 2.4 GHz network, expect about 3 to 5 MB/s. The file always arrives identical.</span></div></div>
         </details>
         <details>
           <summary><span lang="pt">Onde ficam os arquivos recebidos?</span><span lang="en">Where do received files go?</span><span class="plus"></span></summary>
